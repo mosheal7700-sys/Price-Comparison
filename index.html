@@ -207,7 +207,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     'רחובות': [['shufersal', 'הרצל'], ['rami', 'רחובות'], ['yohananof', 'קרית משה'], ['hatzi', 'רחובות']],
     'ראשון לציון': [['rami', 'ראשון לציון'], ['shufersal', 'נחלת יהודה'], ['victory', 'הראשונים'], ['yeinot', 'קניון הזהב']],
     'נתניה': [['shufersal', 'נתניה'], ['rami', 'פולג'], ['osherad', 'נתניה'], ['mega', 'נתניה']],
-    'אשדוד': [['rami', 'אשדוד'], ['yohananof', 'ד'], ['osherad', 'אשדוד'], ['hatzi', 'אשדוד']]
+    'אשדוד': [['rami', 'אשדוד'], ['yohananof', 'אשדוד'], ['osherad', 'אשדוד'], ['hatzi', 'אשדוד']]
   };
   var PRODUCTS = [
     ['p1', 'חלב טרה 3% 1 ליטר', 6.4], ['p2', 'לחם אחיד פרוס 750 גרם', 8.2], ['p3', 'ביצים L תריסר', 13.9],
@@ -234,12 +234,11 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     return ((h >>> 0) % 100000) / 100000;
   }
   function getStores(city) {
-    var list = CITIES[city];
-    if (!list) {
-      /* city added by the user: example branches, 4 chains picked deterministically */
-      list = Object.keys(CHAINS).sort(function (a, b) { return hash(city + a) - hash(city + b); })
-        .slice(0, 4).map(function (k) { return [k, city]; });
-    }
+    /* every chain appears in every city; listed branches keep their name, the rest get the city name */
+    var list = (CITIES[city] || []).slice();
+    var have = {};
+    list.forEach(function (s) { have[s[0]] = true; });
+    Object.keys(CHAINS).forEach(function (k) { if (!have[k]) list.push([k, city]); });
     return list.map(function (s, i) {
       return { id: city + '|' + s[0] + '|' + s[1], chain: CHAINS[s[0]], branch: s[1], idx: i };
     });
@@ -318,6 +317,18 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
       summary.hidden = true;
       return;
     }
+
+    /* sort stores by basket total, cheapest first; baskets with missing items go last */
+    var stats = stores.map(function (s) {
+      var sum = 0, missing = 0;
+      state.basket.forEach(function (pid) {
+        var pr = getPrice(pid, s, state.version);
+        if (pr == null) missing++; else sum += pr;
+      });
+      return { s: s, sum: sum, missing: missing };
+    });
+    stats.sort(function (a, b) { return (a.missing - b.missing) || (a.sum - b.sum); });
+    stores = stats.map(function (x) { return x.s; });
 
     var totals = stores.map(function () { return { sum: 0, missing: 0 }; });
     var head = '<th class="prod" scope="col">מוצר</th>';
