@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -70,6 +71,31 @@ def chain_name(slug: str, infos: dict) -> str:
     return info.name_he or info.name or slug
 
 
+def cnorm(s: str) -> str:
+    """Normalize Hebrew place text: no quotes or hyphens, one spelling of קרית."""
+    s = (s or "").replace('"', "").replace("'", "").replace("׳", "").replace("״", "")
+    s = re.sub(r"[-־,.()/]+", " ", s)
+    s = s.replace("קריית", "קרית")
+    return " ".join(s.split())
+
+
+def has_term(text: str, terms) -> bool:
+    """True if one of the terms appears in the text as whole words."""
+    hay = f" {cnorm(text)} "
+    return any(f" {cnorm(t)} " in hay for t in terms)
+
+
+_LOOSE_STOP = {"קג", "גרם", "גר", "יח", "יחידה", "יחידות", "ליטר", "מל", "לק", "טרי", "טריה", "טרייה",
+               "ארוז", "ארוזה", "במשקל", "משקל", "קילו"}
+
+
+def norm_name(name: str) -> str:
+    """Matching key for products without a barcode: name without digits, units and filler words."""
+    s = re.sub(r'["\'׳״]', "", name)
+    s = re.sub(r"[\d\-־()*/,.%+:]+", " ", s)
+    return " ".join(t for t in s.split() if t not in _LOOSE_STOP)
+
+
 def pick_stores(stores, terms, limit):
     """Branches whose city, address or name contains one of the city terms."""
     scored = []
@@ -77,9 +103,9 @@ def pick_stores(stores, terms, limit):
     for s in stores:
         if s.store_id in seen:
             continue
-        in_city = bool(s.city) and any(t in s.city for t in terms)
+        in_city = bool(s.city) and has_term(s.city, terms)
         text = " ".join(x for x in (s.address, s.name) if x)
-        in_text = any(t in text for t in terms)
+        in_text = has_term(text, terms)
         if in_city or in_text:
             seen.add(s.store_id)
             scored.append((0 if in_city else 1, s))
@@ -112,8 +138,12 @@ def main() -> int:
     cfg = json.loads(Path(args.config).read_text(encoding="utf-8"))
     chains_cfg = cfg["chains"]
     per_chain = int(cfg.get("stores_per_chain", 2))
-    min_chains = int(cfg.get("min_chains", 2))
-    max_products = int(cfg.get("max_products", 3000))
+    min_chains = int(cfg.get("min_chains", 1))
+    max_products = int(cfg.get("max_products", 8000))
+    include_loose = bool(cfg.get("include_unbarcoded", True))
+    loose_min_chains = int(cfg.get("loose_min_chains", 2))
+    max_loose = int(cfg.get("max_loose", 1500))
+    cities_cfg = [c for c in cfg["cities"] if c.get("enabled", True)]
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -150,7 +180,7 @@ def main() -> int:
 
     plans = []  # (city, entries)
     jobs: dict[tuple, None] = {}
-    for city in cfg["cities"]:
+    for city in cities_cfg:
         entries = []
         for slug in chains_cfg:
             if slug in store_lists:
@@ -206,6 +236,7 @@ def main() -> int:
         names: dict[str, Counter] = {}
         sizes: dict[str, Counter] = {}
         carriers: dict[str, set] = {}
+        weighted: set[str] = set()
 
         for e in entries:
             sid = f'{e["chain"]}:{e["store_id"]}'
@@ -214,16 +245,31 @@ def main() -> int:
             prices: dict[str, float] = {}
             if pf is not None:
                 for it in pf.items:
-                    g = it.gtin
-                    if not g or it.price is None or it.price <= 0:
+                    if it.price is None or it.price <= 0 or not it.name or not it.name.strip():
                         continue
-                    prices[g] = float(round(it.price, 2))
-                    if it.name:
-                        names.setdefault(g, Counter())[it.name.strip()] += 1
-                    sz = size_label(it)
-                    if sz:
-                        sizes.setdefault(g, Counter())[sz] += 1
-                    carriers.setdefault(g, set()).add(e["chain"])
+                    g = it.gtin
+                    if g:
+                        key = g
+                    elif include_loose:
+                        # no barcode (produce, fish, bakery...): match across chains by normalized name
+                        nn = norm_name(it.name)
+                        if len(nn) < 3:
+                            continue
+                        key = "n:" + nn
+                    else:
+                        continue
+                    price = float(round(it.price, 2))
+                    if not g and key in prices:
+                        price = min(price, prices[key])  # several variants of one name: keep the lowest
+                    prices[key] = price
+                    names.setdefault(key, Counter())[it.name.strip()] += 1
+                    if not g and it.is_weighted:
+                        weighted.add(key)
+                    if g:
+                        sz = size_label(it)
+                        if sz:
+                            sizes.setdefault(key, Counter())[sz] += 1
+                    carriers.setdefault(key, set()).add(e["chain"])
                 columns.append((sd, prices, True))
             elif prev and sid in prev_idx:
                 col = prev_idx[sid]
@@ -241,10 +287,14 @@ def main() -> int:
 
         fresh_chains = {c[0]["chain"] for c in columns if c[2]}
         need = min(min_chains, max(1, len(fresh_chains)))
-        ranked = sorted(
-            (g for g, ch in carriers.items() if len(ch) >= need),
-            key=lambda g: (-len(carriers[g]), names[g].most_common(1)[0][0]),
-        )[:max_products]
+        need_loose = min(loose_min_chains, max(1, len(fresh_chains)))
+
+        def rank(keys):
+            return sorted(keys, key=lambda g: (-len(carriers[g]), names[g].most_common(1)[0][0]))
+
+        barcoded = [g for g, ch in carriers.items() if not g.startswith("n:") and len(ch) >= need]
+        loose = [g for g, ch in carriers.items() if g.startswith("n:") and len(ch) >= need_loose]
+        ranked = rank(barcoded)[:max_products] + rank(loose)[:max_loose]
         # products that only stale columns know about are dropped on purpose
 
         products = []
@@ -255,6 +305,8 @@ def main() -> int:
             prod = {"id": g, "n": names[g].most_common(1)[0][0], "p": row}
             if g in sizes:
                 prod["s"] = sizes[g].most_common(1)[0][0]
+            if g in weighted:
+                prod["w"] = 1
             products.append(prod)
 
         payload = {

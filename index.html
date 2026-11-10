@@ -115,6 +115,7 @@ th.prod, td.prod { text-align: right; position: sticky; right: 0; background: va
 tbody tr:last-child td, tfoot td { border-bottom: 0; }
 .pname { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .pname span.n { min-width: 0; }
+.wt { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
 .rm {
   flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted);
   display: inline-flex; align-items: center; justify-content: center; padding: 0;
@@ -261,8 +262,8 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     return fetchJSON('data/' + c.file).then(function (d) {
       d.byId = {};
       catalog = d.products.map(function (p) {
-        d.byId[p.id] = { id: p.id, name: p.n, size: p.s || '', p: p.p };
-        return { id: p.id, name: p.n, size: p.s || '' };
+        d.byId[p.id] = { id: p.id, name: p.n, size: p.s || '', p: p.p, w: !!p.w };
+        return { id: p.id, name: p.n, size: p.s || '', w: !!p.w };
       });
       cityData = d;
     });
@@ -424,7 +425,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
       var min = null;
       prices.forEach(function (p) { if (p != null && (min == null || p < min)) min = p; });
       var p = productById(pid);
-      body += '<tr><td class="prod"><div class="pname"><span class="n">' + esc(p.name) + '</span>' +
+      body += '<tr><td class="prod"><div class="pname"><span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
         '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div></td>';
       prices.forEach(function (pr, i) {
@@ -493,7 +494,8 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     } else {
       shown.forEach(function (p, i) {
         var m = minPriceFor(p.id);
-        var sz = p.size && p.name.indexOf(p.size) === -1 ? '<span class="size">' + esc(p.size) + '</span>' : '';
+        var sz = p.w ? '<span class="size">לפי משקל</span>'
+          : (p.size && p.name.indexOf(p.size) === -1 ? '<span class="size">' + esc(p.size) + '</span>' : '');
         html += '<li role="option" data-add="' + esc(p.id) + '" aria-selected="' + (i === active) + '"><span class="nm">' + esc(p.name) + sz + '</span>' +
           (m != null ? '<span class="from">מ־' + fmt(m) + '</span>' : '') + '</li>';
       });
