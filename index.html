@@ -140,29 +140,6 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 .note { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; margin: 0; }
 .note b { background: var(--warn-bg); color: var(--warn-fg); border-radius: 4px; padding: 0 6px; font-weight: 600; flex: none; }
 .warnline { font-size: 13px; background: var(--warn-bg); color: var(--warn-fg); border-radius: 8px; padding: 8px 12px; margin: 0; }
-
-.admin { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.admin h2 { font-family: var(--font-display); font-size: 18px; margin: 0; }
-.admin-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.admin p { margin: 0; color: var(--muted); font-size: 13px; }
-.admin ol { margin: 0; padding-inline-start: 20px; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
-.admin a { color: var(--accent); }
-.admin .row { display: flex; gap: 8px; flex-wrap: wrap; }
-.admin .row input { flex: 1 1 200px; min-width: 0; }
-.linkbtn { background: none; border: 0; color: var(--accent); padding: 4px; text-decoration: underline; font-size: 13px; }
-.citylist { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
-.citylist li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
-.citylist li:last-child { border-bottom: 0; }
-.citylist .nm { min-width: 0; overflow-wrap: anywhere; }
-.citylist .st { font-size: 12px; color: var(--muted); margin-inline-start: 8px; }
-.citylist .st.wait { color: var(--warn-fg); background: var(--warn-bg); border-radius: 4px; padding: 0 6px; }
-.sw { flex: none; display: inline-flex; align-items: center; gap: 8px; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px 3px 4px; color: var(--muted); font-size: 13px; min-height: 32px; }
-.sw .knob { width: 22px; height: 22px; border-radius: 50%; background: var(--line); display: inline-block; }
-.sw[aria-checked="true"] { color: var(--best-fg); background: var(--best-bg); border-color: var(--accent); }
-.sw[aria-checked="true"] .knob { background: var(--accent); }
-.admin .msg { font-size: 13px; border-radius: 8px; padding: 8px 12px; background: var(--best-bg); color: var(--best-fg); }
-.admin .msg.err { background: var(--warn-bg); color: var(--warn-fg); }
-.admin .foot { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -186,7 +163,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
       <label class="lbl" for="city">עיר</label>
       <div class="cityrow">
         <select id="city"></select>
-        <button class="btn2" id="addCityBtn" type="button" aria-expanded="false" aria-controls="cityForm">+ עיר</button>
+        <button class="btn2" id="addCityBtn" type="button" aria-expanded="false" aria-controls="cityForm" hidden>+ עיר</button>
       </div>
       <form class="cityform" id="cityForm" hidden>
         <input id="cityName" type="text" maxlength="40" placeholder="שם העיר, למשל: אילת" aria-label="שם העיר להוספה" autocomplete="off">
@@ -201,42 +178,6 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   </section>
 
   <p class="warnline" id="warn" hidden></p>
-
-  <section class="admin" id="admin" hidden aria-label="ניהול ערים">
-    <div class="admin-head">
-      <h2>ניהול ערים</h2>
-      <button class="linkbtn" id="adminClose" type="button">סגור</button>
-    </div>
-
-    <div id="adminSetup" hidden>
-      <p>הוספה והסרה של ערים משנות את הקובץ <b>config.json</b> במאגר (השדה <b>enabled</b> הופך ל-true או false), והאיסוף הבא מתחיל לבד. זה דורש מפתח גישה פרטי למאגר, ששמור רק בדפדפן הזה.</p>
-      <ol>
-        <li>ב-GitHub, בתפריט הפרופיל: <bdi dir="ltr">Settings &gt; Developer settings &gt; Personal access tokens &gt; <b>Fine-grained tokens</b> &gt; Generate new token</bdi>.</li>
-        <li>בחר את המאגר הזה תחת <bdi dir="ltr">Repository access &gt; <b>Only select repositories</b></bdi>, ותחת <bdi dir="ltr">Permissions &gt; Contents</bdi> בחר <bdi dir="ltr"><b>Read and write</b></bdi>. מומלץ לקבוע תפוגה.</li>
-        <li>הדבק את המפתח כאן ולחץ "התחבר".</li>
-      </ol>
-      <form class="row" id="tokenForm">
-        <input id="repoInput" type="text" dir="ltr" placeholder="owner/repo" aria-label="שם המאגר" autocomplete="off">
-        <input id="tokenInput" type="password" dir="ltr" placeholder="github_pat_…" aria-label="מפתח גישה" autocomplete="off">
-        <button class="btn" type="submit">התחבר</button>
-      </form>
-    </div>
-
-    <div id="adminMain" hidden>
-      <form class="row" id="addCityForm">
-        <input id="newCity" type="text" maxlength="40" placeholder="הוסף עיר, למשל: אילת" aria-label="שם עיר להוספה" autocomplete="off">
-        <button class="btn" type="submit">+ הוסף עיר</button>
-      </form>
-      <input id="cityFilter" type="search" placeholder="סנן את הרשימה" aria-label="סינון ערים" autocomplete="off">
-      <ul class="citylist" id="cityList"></ul>
-      <div class="foot">
-        <button class="btn" id="saveCities" type="button" disabled>שמור ועדכן</button>
-        <span class="sub" id="dirtyInfo"></span>
-        <button class="linkbtn" id="logout" type="button">התנתק</button>
-      </div>
-    </div>
-    <div class="msg" id="adminMsg" role="status" hidden></div>
-  </section>
   <section class="summary" id="summary" hidden aria-live="polite"></section>
 
   <section class="grid-wrap" aria-label="טבלת השוואת מחירים">
@@ -535,44 +476,18 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   }
 
   /* ---------- Search dropdown ---------- */
-  /* normalize Hebrew text for matching: no quotes, niqqud or punctuation, one spelling of final letters */
-  function norm(s) {
-    return String(s).toLowerCase()
-      .replace(/[֑-ׇ]/g, '')
-      .replace(/["'`׳״’‘“”]/g, '')
-      .replace(/[\-־_.,()\/*+:;%]+/g, ' ')
-      .replace(/ך/g, 'כ').replace(/ם/g, 'מ').replace(/ן/g, 'נ').replace(/ף/g, 'פ').replace(/ץ/g, 'צ')
-      .replace(/\s+/g, ' ').trim();
-  }
-  /* drop a plural or feminine ending so "עגבניה" finds "עגבניות" and "תפוחים" finds "תפוח" */
-  function stem(w) {
-    if (w.length > 4 && /(ות|ים|ימ)$/.test(w)) return w.slice(0, -2);
-    if (w.length > 3 && /[הת]$/.test(w)) return w.slice(0, -1);
-    return w;
-  }
   var active = -1, shown = [];
   function closeList() { results.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; }
   function openList() {
     var term = q.value.trim();
     if (!term) { closeList(); return; }
-    var words = norm(term).split(' ').filter(Boolean).map(stem);
-    if (!words.length) { closeList(); return; }
-    var scored = [];
-    catalog.forEach(function (p) {
-      if (state.basket.indexOf(p.id) !== -1) return;
-      var key = p.k || (p.k = norm(p.name));
-      var score = 0;
-      for (var i = 0; i < words.length; i++) {
-        var at = key.indexOf(words[i]);
-        if (at < 0) return;
-        /* word-start matches rank above matches in the middle of a word */
-        score += (at === 0 || key.charAt(at - 1) === ' ') ? 0 : 5;
-        score += at / 100;
-      }
-      scored.push({ p: p, s: score + key.length / 1000 });
+    var words = term.split(/\s+/).filter(Boolean);
+    shown = catalog.filter(function (p) {
+      if (state.basket.indexOf(p.id) !== -1) return false;
+      return words.every(function (w) { return p.name.indexOf(w) !== -1; });
     });
-    scored.sort(function (a, b) { return a.s - b.s; });
-    shown = scored.slice(0, 20).map(function (x) { return x.p; });
+    shown.sort(function (a, b) { return a.name.indexOf(words[0]) - b.name.indexOf(words[0]); });
+    shown = shown.slice(0, 8);
     var html = '';
     if (!shown.length) {
       html = '<li class="none" role="option" aria-disabled="true">לא נמצאו מוצרים תואמים</li>';
@@ -627,10 +542,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     addCityBtn.setAttribute('aria-expanded', String(open));
     if (open) cityName.focus();
   }
-  addCityBtn.addEventListener('click', function () {
-    if (live) { openAdmin(); return; }
-    toggleCityForm(cityForm.hidden);
-  });
+  addCityBtn.addEventListener('click', function () { toggleCityForm(cityForm.hidden); });
   cityName.addEventListener('keydown', function (e) { if (e.key === 'Escape') { toggleCityForm(false); addCityBtn.focus(); } });
   cityForm.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -680,160 +592,11 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     }, 700);
   });
 
-  /* ---------- City admin: edits config.json in the GitHub repo ---------- */
-  var admin = $('admin'), adminSetup = $('adminSetup'), adminMain = $('adminMain'), adminMsg = $('adminMsg');
-  var cityList = $('cityList'), saveBtn = $('saveCities'), dirtyInfo = $('dirtyInfo'), cityFilter = $('cityFilter');
-  var cfg = null, cfgSha = null, dirty = false;
-
-  function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
-  function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
-  function guessRepo() {
-    var saved = lsGet('cb-gh-repo');
-    if (saved) return saved;
-    var m = location.hostname.match(/^([^.]+)\.github\.io$/);
-    var seg = location.pathname.split('/').filter(Boolean)[0];
-    return m && seg ? m[1] + '/' + seg : '';
-  }
-  function showMsg(text, isErr) {
-    adminMsg.hidden = !text;
-    adminMsg.textContent = text || '';
-    adminMsg.className = 'msg' + (isErr ? ' err' : '');
-  }
-  function gh(path, opts) {
-    opts = opts || {};
-    opts.headers = { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + lsGet('cb-gh-token'), 'Content-Type': 'application/json' };
-    return fetch('https://api.github.com/repos/' + lsGet('cb-gh-repo') + path, opts).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok) { var e = new Error(j.message || ('HTTP ' + r.status)); e.status = r.status; throw e; }
-        return j;
-      });
-    });
-  }
-  function b64decode(s) {
-    var bin = atob(s.replace(/\s/g, '')), bytes = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
-  }
-  function b64encode(str) {
-    var bytes = new TextEncoder().encode(str), bin = '';
-    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
-  }
-  function explain(e) {
-    if (e.status === 401) return 'המפתח לא תקין או שפג תוקפו. התנתק והזן מפתח חדש.';
-    if (e.status === 403 || e.status === 404) return 'אין למפתח הרשאה לכתוב ל-config.json במאגר הזה. בדוק שהמאגר נכון ושההרשאה Contents היא Read and write.';
-    if (e.status === 409 || e.status === 422) return 'הקובץ השתנה במאגר בזמן העריכה. הרשימה נטענה מחדש, בצע את השינוי שוב.';
-    return 'הפעולה נכשלה: ' + e.message;
-  }
-  function openAdmin() {
-    admin.hidden = false;
-    showMsg('');
-    if (lsGet('cb-gh-token') && lsGet('cb-gh-repo')) { showMain(); return; }
-    adminMain.hidden = true; adminSetup.hidden = false;
-    $('repoInput').value = guessRepo();
-    $('tokenInput').value = '';
-    (($('repoInput').value) ? $('tokenInput') : $('repoInput')).focus();
-    admin.scrollIntoView({ block: 'nearest' });
-  }
-  function showMain() {
-    adminSetup.hidden = true; adminMain.hidden = false;
-    cityList.innerHTML = '<li>טוען…</li>';
-    gh('/contents/config.json').then(function (f) {
-      cfg = JSON.parse(b64decode(f.content)); cfgSha = f.sha; dirty = false;
-      renderCities();
-      $('newCity').focus();
-    }).catch(function (e) {
-      cityList.innerHTML = '';
-      showMsg(explain(e), true);
-      if (e.status === 401) { adminMain.hidden = true; adminSetup.hidden = false; }
-    });
-  }
-  function hasData(name) { return !!(liveIndex && liveIndex.cities.some(function (c) { return c.name === name; })); }
-  function renderCities() {
-    var f = norm(cityFilter.value || '');
-    var html = '';
-    var on = 0;
-    cfg.cities.forEach(function (c, i) {
-      if (c.enabled !== false) on++;
-      if (f && norm(c.name).indexOf(f) < 0) return;
-      var en = c.enabled !== false;
-      var st = en ? (hasData(c.name) ? '<span class="st">יש נתונים</span>' : '<span class="st wait">ממתין לאיסוף</span>') : '';
-      html += '<li><span class="nm">' + esc(c.name) + st + '</span>' +
-        '<button type="button" class="sw" role="switch" aria-checked="' + en + '" data-city="' + i + '" aria-label="' + esc(c.name) + '">' +
-        '<span class="knob"></span><span>' + (en ? 'true' : 'false') + '</span></button></li>';
-    });
-    cityList.innerHTML = html || '<li>לא נמצאו ערים</li>';
-    saveBtn.disabled = !dirty;
-    dirtyInfo.textContent = (dirty ? 'יש שינויים שלא נשמרו · ' : '') + on + ' ערים פעילות';
-  }
-  function cityKey(name) {
-    var h = 2166136261;
-    for (var i = 0; i < name.length; i++) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619); }
-    var key = 'c' + (h >>> 0).toString(36);
-    var used = {};
-    cfg.cities.forEach(function (c) { used[c.key] = 1; });
-    while (used[key]) key += 'x';
-    return key;
-  }
-  cityList.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-city]');
-    if (!b || !cfg) return;
-    var c = cfg.cities[+b.getAttribute('data-city')];
-    c.enabled = !(c.enabled !== false);
-    dirty = true; showMsg(''); renderCities();
-  });
-  cityFilter.addEventListener('input', function () { if (cfg) renderCities(); });
-  $('addCityForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (!cfg) return;
-    var name = $('newCity').value.replace(/\s+/g, ' ').trim();
-    if (!name) { $('newCity').focus(); return; }
-    var found = cfg.cities.filter(function (c) { return norm(c.name) === norm(name); })[0];
-    if (found) { found.enabled = true; showMsg('העיר כבר ברשימה והיא הופעלה (true).'); }
-    else {
-      cfg.cities.push({ key: cityKey(name), name: name, match: [name], enabled: true });
-      showMsg('');
-    }
-    dirty = true; $('newCity').value = ''; cityFilter.value = ''; renderCities();
-  });
-  saveBtn.addEventListener('click', function () {
-    if (!cfg || !dirty) return;
-    saveBtn.disabled = true; showMsg('שומר…');
-    gh('/contents/config.json', {
-      method: 'PUT',
-      body: JSON.stringify({
-        message: 'עדכון רשימת הערים מהאתר',
-        content: b64encode(JSON.stringify(cfg, null, 2) + '\n'),
-        sha: cfgSha
-      })
-    }).then(function (r) {
-      cfgSha = r.content && r.content.sha; dirty = false; renderCities();
-      showMsg('נשמר. האיסוף מתחיל עכשיו ואורך כמה דקות. בסיומו ערים שהופעלו יופיעו ברשימת הערים, אחרי רענון הדף.');
-    }).catch(function (e) {
-      showMsg(explain(e), true);
-      if (e.status === 409 || e.status === 422) showMain();
-      else saveBtn.disabled = false;
-    });
-  });
-  $('tokenForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var repo = $('repoInput').value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/+$/, '');
-    var tok = $('tokenInput').value.trim();
-    if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !tok) { showMsg('הזן שם מאגר בפורמט owner/repo ומפתח גישה.', true); return; }
-    lsSet('cb-gh-repo', repo); lsSet('cb-gh-token', tok);
-    $('tokenInput').value = '';
-    showMsg(''); showMain();
-  });
-  $('logout').addEventListener('click', function () {
-    lsSet('cb-gh-token', ''); cfg = null; dirty = false; showMsg('המפתח נמחק מהדפדפן הזה.'); adminMain.hidden = true; adminSetup.hidden = false;
-    $('repoInput').value = guessRepo();
-  });
-  $('adminClose').addEventListener('click', function () { admin.hidden = true; });
-
   /* ---------- Start ---------- */
   loadIndex().then(function (ok) {
     live = ok;
     initState();
+    addCityBtn.hidden = live;
     fillCities();
     if (!live) {
       catalog = PRODUCTS.map(function (p) { return { id: p[0], name: p[1], size: '' }; });
@@ -843,6 +606,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     return loadCity(state.city).then(render).catch(function () {
       live = false;
       initState();
+      addCityBtn.hidden = false;
       fillCities();
       catalog = PRODUCTS.map(function (p) { return { id: p[0], name: p[1], size: '' }; });
       render();
