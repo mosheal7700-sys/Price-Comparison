@@ -1,0 +1,60 @@
+name: עדכון מחירים ופרסום האתר
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"   # כל 4 שעות
+  workflow_dispatch:           # הרצה ידנית מלשונית Actions
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - collect.py
+      - config.json
+      - requirements.txt
+      - .github/workflows/update.yml
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # כברירת מחדל רץ על שרתי GitHub. אם הרשתות חוסמות אותם, אפשר להגדיר
+    # משתנה מאגר בשם RUNNER_LABEL ולהריץ על מחשב בישראל (self-hosted runner).
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: התקנת תלויות
+        run: pip install -r requirements.txt
+
+      - name: איסוף מחירים
+        env:
+          PREV_BASE: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data
+        run: python collect.py --out site/data --prev-base "$PREV_BASE"
+
+      - name: הרכבת האתר
+        run: cp index.html site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
