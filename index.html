@@ -476,18 +476,44 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   }
 
   /* ---------- Search dropdown ---------- */
+  /* normalize Hebrew text for matching: no quotes, niqqud or punctuation, one spelling of final letters */
+  function norm(s) {
+    return String(s).toLowerCase()
+      .replace(/[֑-ׇ]/g, '')
+      .replace(/["'`׳״’‘“”]/g, '')
+      .replace(/[\-־_.,()\/*+:;%]+/g, ' ')
+      .replace(/ך/g, 'כ').replace(/ם/g, 'מ').replace(/ן/g, 'נ').replace(/ף/g, 'פ').replace(/ץ/g, 'צ')
+      .replace(/\s+/g, ' ').trim();
+  }
+  /* drop a plural or feminine ending so "עגבניה" finds "עגבניות" and "תפוחים" finds "תפוח" */
+  function stem(w) {
+    if (w.length > 4 && /(ות|ים|ימ)$/.test(w)) return w.slice(0, -2);
+    if (w.length > 3 && /[הת]$/.test(w)) return w.slice(0, -1);
+    return w;
+  }
   var active = -1, shown = [];
   function closeList() { results.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; }
   function openList() {
     var term = q.value.trim();
     if (!term) { closeList(); return; }
-    var words = term.split(/\s+/).filter(Boolean);
-    shown = catalog.filter(function (p) {
-      if (state.basket.indexOf(p.id) !== -1) return false;
-      return words.every(function (w) { return p.name.indexOf(w) !== -1; });
+    var words = norm(term).split(' ').filter(Boolean).map(stem);
+    if (!words.length) { closeList(); return; }
+    var scored = [];
+    catalog.forEach(function (p) {
+      if (state.basket.indexOf(p.id) !== -1) return;
+      var key = p.k || (p.k = norm(p.name));
+      var score = 0;
+      for (var i = 0; i < words.length; i++) {
+        var at = key.indexOf(words[i]);
+        if (at < 0) return;
+        /* word-start matches rank above matches in the middle of a word */
+        score += (at === 0 || key.charAt(at - 1) === ' ') ? 0 : 5;
+        score += at / 100;
+      }
+      scored.push({ p: p, s: score + key.length / 1000 });
     });
-    shown.sort(function (a, b) { return a.name.indexOf(words[0]) - b.name.indexOf(words[0]); });
-    shown = shown.slice(0, 8);
+    scored.sort(function (a, b) { return a.s - b.s; });
+    shown = scored.slice(0, 20).map(function (x) { return x.p; });
     var html = '';
     if (!shown.length) {
       html = '<li class="none" role="option" aria-disabled="true">לא נמצאו מוצרים תואמים</li>';
