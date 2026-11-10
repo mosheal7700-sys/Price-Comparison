@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>:root{color-scheme:light}body{margin:0}</style>
+<title>הסל הזול</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&family=Rubik:wght@600;700&display=swap">
+<style>
+/* Layout: one working surface. Controls on top, a store-by-product price grid below, products down the right edge (RTL), stores across the header row, basket totals in a closing row. */
+:root {
+  --bg: #F1F4F3;
+  --surface: #FFFFFF;
+  --fg: #14211D;
+  --muted: #5B6B66;
+  --line: #DAE2DF;
+  --accent: #0B6B4F;
+  --accent-fg: #FFFFFF;
+  --best-bg: #DDF3E8;
+  --best-fg: #064B37;
+  --up: #B3261E;
+  --down: #0B6B4F;
+  --warn-bg: #FFF1D6;
+  --warn-fg: #6B4A00;
+  --focus: #1A73E8;
+  --font-body: "Heebo", "Segoe UI", Arial, sans-serif;
+  --font-display: "Rubik", "Heebo", "Segoe UI", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1614; --surface: #15211E; --fg: #E6EFEB; --muted: #93A8A0; --line: #263632;
+    --accent: #4CCB98; --accent-fg: #04261B; --best-bg: #14392D; --best-fg: #A9F0D2;
+    --up: #FF8A80; --down: #6FE0B0; --warn-bg: #3A2E10; --warn-fg: #FFD98A; --focus: #8AB4F8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1614; --surface: #15211E; --fg: #E6EFEB; --muted: #93A8A0; --line: #263632;
+  --accent: #4CCB98; --accent-fg: #04261B; --best-bg: #14392D; --best-fg: #A9F0D2;
+  --up: #FF8A80; --down: #6FE0B0; --warn-bg: #3A2E10; --warn-fg: #FFD98A; --focus: #8AB4F8;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
+h1 { font-family: var(--font-display); font-size: 28px; line-height: 1.2; margin: 0; font-weight: 700; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.refresh-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.stamp { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+button { font-family: inherit; font-size: 15px; cursor: pointer; }
+.btn {
+  background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 8px; padding: 9px 16px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+}
+.btn:disabled { opacity: .7; cursor: progress; }
+.btn svg { width: 16px; height: 16px; }
+.spin svg { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(-360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin svg { animation: none; } }
+
+.controls { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: 12px; align-items: end; }
+@media (max-width: 560px) { .controls { grid-template-columns: 1fr; } }
+label.lbl { display: block; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .03em; margin-bottom: 4px; }
+select, input[type="search"] {
+  width: 100%; min-height: 44px; border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+  border-radius: 8px; padding: 8px 12px; font-family: inherit; font-size: 15px;
+}
+.cityrow { display: flex; gap: 8px; }
+.cityrow select { flex: 1; min-width: 0; }
+.btn2 {
+  flex: none; min-height: 44px; border: 1px solid var(--line); background: var(--surface); color: var(--accent);
+  border-radius: 8px; padding: 8px 12px; font-weight: 600; white-space: nowrap;
+}
+.btn2:hover { border-color: var(--accent); }
+.cityform { display: flex; gap: 8px; margin-top: 8px; }
+.cityform input { flex: 1; min-width: 0; }
+.cityform .btn { flex: none; min-height: 44px; }
+.search { position: relative; min-width: 0; }
+.results {
+  position: absolute; z-index: 20; inset-inline: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; max-height: 320px; overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,.14);
+}
+.results li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 6px; cursor: pointer; }
+.results li[aria-selected="true"], .results li:hover { background: var(--best-bg); color: var(--best-fg); }
+.results .size { color: var(--muted); font-size: 12px; }
+.results li[aria-selected="true"] .size, .results li:hover .size { color: inherit; }
+.results .from { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.results .none { color: var(--muted); cursor: default; }
+.results .none:hover { background: none; color: var(--muted); }
+
+.summary { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.summary .big { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.summary .txt { min-width: 0; }
+.summary .save { color: var(--muted); font-size: 14px; }
+
+.grid-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 520px; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: center; vertical-align: middle; }
+thead th { background: var(--surface); font-weight: 600; vertical-align: bottom; }
+th.prod, td.prod { text-align: right; position: sticky; right: 0; background: var(--surface); z-index: 2; min-width: 170px; border-left: 1px solid var(--line); }
+.chain { font-weight: 700; font-size: 14px; }
+.branch { font-weight: 400; font-size: 12px; color: var(--muted); }
+tbody tr:last-child td, tfoot td { border-bottom: 0; }
+.pname { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.pname span.n { min-width: 0; }
+.pname small { display: block; color: var(--muted); font-size: 12px; }
+.rm {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center; padding: 0;
+}
+.rm:hover { color: var(--up); border-color: var(--up); }
+.rm svg { width: 12px; height: 12px; }
+td.price { font-size: 15px; white-space: nowrap; }
+td.best { background: var(--best-bg); color: var(--best-fg); font-weight: 700; }
+td.na { color: var(--muted); }
+.delta { font-size: 11px; font-weight: 500; margin-inline-start: 4px; }
+.delta.up { color: var(--up); }
+.delta.down { color: var(--down); }
+td.best .delta.down { color: var(--best-fg); }
+tfoot td { background: var(--bg); font-weight: 700; border-top: 2px solid var(--line); }
+tfoot td.prod { background: var(--bg); }
+tfoot td.best { background: var(--accent); color: var(--accent-fg); }
+.tot { font-family: var(--font-display); font-size: 17px; }
+.badge { display: block; font-size: 11px; font-weight: 600; margin-top: 2px; }
+.miss { display: block; font-size: 11px; font-weight: 500; margin-top: 2px; background: var(--warn-bg); color: var(--warn-fg); border-radius: 4px; padding: 1px 6px; }
+.empty { padding: 36px 16px; text-align: center; color: var(--muted); }
+.empty strong { display: block; color: var(--fg); font-size: 17px; margin-bottom: 4px; }
+.note { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+.note b { background: var(--warn-bg); color: var(--warn-fg); border-radius: 4px; padding: 0 6px; font-weight: 600; flex: none; }
+</style>
+
+<div class="app" dir="rtl" lang="he">
+  <header>
+    <div>
+      <h1>הסל הזול</h1>
+      <div class="sub">השוואת מחירי סל קניות בין סניפים בעיר שלך</div>
+    </div>
+    <div class="refresh-wrap">
+      <span class="stamp" id="stamp" aria-live="polite"></span>
+      <button class="btn" id="refresh" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+        <span>רענן מחירים</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="controls" aria-label="סינון וחיפוש">
+    <div>
+      <label class="lbl" for="city">עיר</label>
+      <div class="cityrow">
+        <select id="city"></select>
+        <button class="btn2" id="addCityBtn" type="button" aria-expanded="false" aria-controls="cityForm">+ עיר</button>
+      </div>
+      <form class="cityform" id="cityForm" hidden>
+        <input id="cityName" type="text" maxlength="40" placeholder="שם העיר, למשל: אילת" aria-label="שם העיר להוספה" autocomplete="off">
+        <button class="btn" type="submit">הוסף</button>
+      </form>
+    </div>
+    <div class="search">
+      <label class="lbl" for="q">הוסף מוצר לסל</label>
+      <input id="q" type="search" autocomplete="off" placeholder="הקלד מילה, למשל: חלב, אורז, שמן" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
+      <ul class="results" id="results" role="listbox" hidden></ul>
+    </div>
+  </section>
+
+  <section class="summary" id="summary" hidden aria-live="polite"></section>
+
+  <section class="grid-wrap" aria-label="טבלת השוואת מחירים">
+    <div id="gridHost"></div>
+  </section>
+
+  <p class="note"><b>נתוני דוגמה</b><span>המחירים והסניפים באפליקציה זו הם לצורך הדגמה בלבד. חיבור למחירים אמיתיים (קבצי השקיפות של הרשתות) דורש שרת שאוסף ומנקה אותם, והוא יכול להחליף את פונקציית getPrice בקוד.</span></p>
+</div>
+
+<script>
+(function () {
+  document.documentElement.dir = 'rtl';
+  document.documentElement.lang = 'he';
+
+  /* ---------- Example data layer (replace getPrice/getStores with a real API) ---------- */
+  var CHAINS = {
+    shufersal: { name: 'שופרסל', f: 1.08 },
+    rami: { name: 'רמי לוי', f: 0.93 },
+    yohananof: { name: 'יוחננוף', f: 0.96 },
+    victory: { name: 'ויקטורי', f: 1.04 },
+    yeinot: { name: 'יינות ביתן', f: 1.06 },
+    osherad: { name: 'אושר עד', f: 0.95 },
+    mega: { name: 'מגה', f: 1.02 },
+    hatzi: { name: 'חצי חינם', f: 0.91 }
+  };
+  var CITIES = {
+    'תל אביב-יפו': [['shufersal', 'דיזנגוף'], ['rami', 'הנמל'], ['victory', 'אבן גבירול'], ['yeinot', 'רמת אביב'], ['mega', 'יפו']],
+    'ירושלים': [['shufersal', 'תלפיות'], ['rami', 'תלפיות'], ['yohananof', 'מלחה'], ['mega', 'רחביה']],
+    'חיפה': [['shufersal', 'הדר'], ['rami', 'קריות'], ['victory', 'הנמל'], ['yeinot', 'קניון חיפה']],
+    'באר שבע': [['rami', 'הנגב'], ['yohananof', 'באר שבע'], ['osherad', 'אזור תעשייה'], ['shufersal', 'נווה זאב']],
+    'רחובות': [['shufersal', 'הרצל'], ['rami', 'רחובות'], ['yohananof', 'קרית משה'], ['hatzi', 'רחובות']],
+    'ראשון לציון': [['rami', 'ראשון לציון'], ['shufersal', 'נחלת יהודה'], ['victory', 'הראשונים'], ['yeinot', 'קניון הזהב']],
+    'נתניה': [['shufersal', 'נתניה'], ['rami', 'פולג'], ['osherad', 'נתניה'], ['mega', 'נתניה']],
+    'אשדוד': [['rami', 'אשדוד'], ['yohananof', 'ד'], ['osherad', 'אשדוד'], ['hatzi', 'אשדוד']]
+  };
+  var PRODUCTS = [
+    ['p1', 'חלב טרה 3% 1 ליטר', 6.4], ['p2', 'לחם אחיד פרוס 750 גרם', 8.2], ['p3', 'ביצים L תריסר', 13.9],
+    ['p4', 'גבינה לבנה 5% 250 גרם', 5.9], ['p5', 'גבינה צהובה עמק 28% 200 גרם', 11.5], ['p6', 'שמנת מתוקה 38% 250 מ"ל', 8.9],
+    ['p7', 'יוגורט תות 150 גרם', 3.4], ['p8', 'חמאה 200 גרם', 9.9], ['p9', 'קוטג׳ 5% 250 גרם', 5.6],
+    ['p10', 'אורז בסמטי 1 ק"ג', 12.9], ['p11', 'פסטה ספגטי 500 גרם', 5.9], ['p12', 'שמן קנולה 1 ליטר', 11.9],
+    ['p13', 'שמן זית כתית מעולה 750 מ"ל', 39.9], ['p14', 'סוכר 1 ק"ג', 5.9], ['p15', 'קמח לבן 1 ק"ג', 4.9],
+    ['p16', 'מלח שולחן 1 ק"ג', 2.9], ['p17', 'עגבניות 1 ק"ג', 6.9], ['p18', 'מלפפונים 1 ק"ג', 6.5],
+    ['p19', 'בצל יבש 1 ק"ג', 4.5], ['p20', 'תפוחי אדמה 1 ק"ג', 5.2], ['p21', 'גזר 1 ק"ג', 4.9],
+    ['p22', 'בננות 1 ק"ג', 7.9], ['p23', 'תפוחים 1 ק"ג', 9.9], ['p24', 'חזה עוף טרי 1 ק"ג', 36.9],
+    ['p25', 'שניצל עוף קפוא 1 ק"ג', 34.9], ['p26', 'טחינה גולמית 500 גרם', 17.9], ['p27', 'חומוס מוכן 400 גרם', 9.5],
+    ['p28', 'טונה בשמן 4 יח׳', 22.9], ['p29', 'קורנפלקס 750 גרם', 17.9], ['p30', 'קפה נמס 200 גרם', 24.9],
+    ['p31', 'תה ויסוצקי 25 שקיות', 11.9], ['p32', 'מים מינרליים 6x1.5 ליטר', 14.9], ['p33', 'קולה 1.5 ליטר', 7.9],
+    ['p34', 'נייר טואלט 32 גלילים', 39.9], ['p35', 'אבקת כביסה 3 ק"ג', 36.9], ['p36', 'נוזל כלים 750 מ"ל', 9.9],
+    ['p37', 'שוקולד מריר 100 גרם', 7.9], ['p38', 'עדשים כתומות 500 גרם', 8.9], ['p39', 'קטשופ 750 גרם', 11.5],
+    ['p40', 'מיונז 500 גרם', 9.9]
+  ];
+  var BYID = {};
+  PRODUCTS.forEach(function (p) { BYID[p[0]] = { id: p[0], name: p[1], base: p[2] }; });
+
+  function hash(s) {
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return ((h >>> 0) % 100000) / 100000;
+  }
+  function getStores(city) {
+    var list = CITIES[city];
+    if (!list) {
+      /* city added by the user: example branches, 4 chains picked deterministically */
+      list = Object.keys(CHAINS).sort(function (a, b) { return hash(city + a) - hash(city + b); })
+        .slice(0, 4).map(function (k) { return [k, city]; });
+    }
+    return list.map(function (s, i) {
+      return { id: city + '|' + s[0] + '|' + s[1], chain: CHAINS[s[0]], branch: s[1], idx: i };
+    });
+  }
+  function getPrice(pid, store, version) {
+    if (hash(pid + store.id + 'avail') > 0.94) return null;
+    var p = BYID[pid];
+    var branchNoise = 1 + (hash(store.id + pid) - 0.5) * 0.12;
+    var drift = 1 + (hash(pid + store.id + 'v' + version) - 0.5) * 0.07;
+    return Math.round(p.base * store.chain.f * branchNoise * drift * 10) / 10;
+  }
+
+  /* ---------- State ---------- */
+  var state = { city: 'רחובות', basket: ['p1', 'p2', 'p3', 'p10', 'p17'], customCities: [], version: 3, updated: new Date() };
+  try {
+    var saved = JSON.parse(localStorage.getItem('cheap-basket') || 'null');
+    if (saved && Array.isArray(saved.customCities)) {
+      state.customCities = saved.customCities.filter(function (c) { return typeof c === 'string' && c.length > 0 && c.length <= 40 && !CITIES[c]; }).slice(0, 50);
+    }
+    if (saved && (CITIES[saved.city] || state.customCities.indexOf(saved.city) !== -1)) state.city = saved.city;
+    if (saved && Array.isArray(saved.basket)) state.basket = saved.basket.filter(function (id) { return BYID[id]; });
+  } catch (e) {}
+  function persist() {
+    try { localStorage.setItem('cheap-basket', JSON.stringify({ city: state.city, basket: state.basket, customCities: state.customCities })); } catch (e) {}
+  }
+
+  /* ---------- Elements ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var citySel = $('city'), q = $('q'), results = $('results'), host = $('gridHost'), summary = $('summary');
+  var stamp = $('stamp'), refreshBtn = $('refresh');
+
+  function fillCities() {
+    citySel.innerHTML = '';
+    Object.keys(CITIES).concat(state.customCities).forEach(function (c) {
+      var o = document.createElement('option'); o.value = c; o.textContent = c; citySel.appendChild(o);
+    });
+    citySel.value = state.city;
+  }
+  fillCities();
+
+  var addCityBtn = $('addCityBtn'), cityForm = $('cityForm'), cityName = $('cityName');
+  function toggleCityForm(open) {
+    cityForm.hidden = !open;
+    addCityBtn.setAttribute('aria-expanded', String(open));
+    if (open) cityName.focus();
+  }
+  addCityBtn.addEventListener('click', function () { toggleCityForm(cityForm.hidden); });
+  cityName.addEventListener('keydown', function (e) { if (e.key === 'Escape') { toggleCityForm(false); addCityBtn.focus(); } });
+  cityForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = cityName.value.replace(/\s+/g, ' ').trim();
+    if (!name) { cityName.focus(); return; }
+    var all = Object.keys(CITIES).concat(state.customCities);
+    if (all.indexOf(name) === -1) state.customCities.push(name);
+    state.city = name;
+    cityName.value = '';
+    toggleCityForm(false);
+    fillCities(); persist(); closeList(); render();
+  });
+
+  function fmt(n) { return '₪' + n.toFixed(2); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function minPriceFor(pid) {
+    var stores = getStores(state.city), m = null;
+    stores.forEach(function (s) { var p = getPrice(pid, s, state.version); if (p != null && (m == null || p < m)) m = p; });
+    return m;
+  }
+
+  /* ---------- Render ---------- */
+  function render() {
+    var stores = getStores(state.city);
+    stamp.textContent = 'עודכן ' + state.updated.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    if (!state.basket.length) {
+      host.innerHTML = '<div class="empty"><strong>הסל ריק</strong>חפש מוצר בשדה למעלה כדי להתחיל להשוות מחירים.</div>';
+      summary.hidden = true;
+      return;
+    }
+
+    var totals = stores.map(function () { return { sum: 0, missing: 0 }; });
+    var head = '<th class="prod" scope="col">מוצר</th>';
+    stores.forEach(function (s) {
+      head += '<th scope="col"><div class="chain">' + esc(s.chain.name) + '</div><div class="branch">' + esc(s.branch) + '</div></th>';
+    });
+
+    var body = '';
+    state.basket.forEach(function (pid) {
+      var prices = stores.map(function (s) { return getPrice(pid, s, state.version); });
+      var prev = stores.map(function (s) { return getPrice(pid, s, state.version - 1); });
+      var min = null;
+      prices.forEach(function (p) { if (p != null && (min == null || p < min)) min = p; });
+      var p = BYID[pid];
+      body += '<tr><td class="prod"><div class="pname"><span class="n">' + esc(p.name) + '</span>' +
+        '<button class="rm" type="button" data-rm="' + pid + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div></td>';
+      prices.forEach(function (pr, i) {
+        if (pr == null) { body += '<td class="na">אין במלאי</td>'; totals[i].missing++; return; }
+        totals[i].sum += pr;
+        var cls = 'price' + (pr === min ? ' best' : '');
+        var d = '';
+        if (prev[i] != null && Math.abs(pr - prev[i]) >= 0.05) {
+          d = pr > prev[i] ? '<span class="delta up" title="עלה מאז העדכון הקודם">▲</span>' : '<span class="delta down" title="ירד מאז העדכון הקודם">▼</span>';
+        }
+        body += '<td class="' + cls + '">' + fmt(pr) + d + '</td>';
+      });
+      body += '</tr>';
+    });
+
+    var complete = [];
+    totals.forEach(function (t, i) { if (t.missing === 0) complete.push({ i: i, sum: t.sum }); });
+    var bestIdx = -1, worst = null;
+    complete.forEach(function (c) {
+      if (bestIdx < 0 || c.sum < totals[bestIdx].sum) bestIdx = c.i;
+      if (worst == null || c.sum > worst) worst = c.sum;
+    });
+
+    var foot = '<td class="prod">סה״כ הסל</td>';
+    totals.forEach(function (t, i) {
+      var isBest = i === bestIdx;
+      foot += '<td class="' + (isBest ? 'best' : '') + '"><span class="tot">' + fmt(t.sum) + '</span>' +
+        (isBest ? '<span class="badge">הסל הזול ביותר</span>' : '') +
+        (t.missing ? '<span class="miss">חסרים ' + t.missing + ' מוצרים</span>' : '') + '</td>';
+    });
+
+    host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>';
+
+    if (bestIdx >= 0) {
+      var bs = stores[bestIdx], save = worst - totals[bestIdx].sum;
+      summary.hidden = false;
+      summary.innerHTML = '<span class="big">' + fmt(totals[bestIdx].sum) + '</span>' +
+        '<span class="txt"><b>' + esc(bs.chain.name) + ' · ' + esc(bs.branch) + '</b> הוא הסל הזול ביותר ב' + esc(state.city) + '</span>' +
+        (save > 0.05 ? '<span class="save">חיסכון של ' + fmt(save) + ' לעומת הסניף היקר ביותר</span>' : '');
+    } else {
+      summary.hidden = false;
+      summary.innerHTML = '<span class="txt">אף סניף לא מחזיק את כל המוצרים שבסל. הסר מוצר חסר כדי לראות סל שלם.</span>';
+    }
+  }
+
+  /* ---------- Search dropdown ---------- */
+  var active = -1, shown = [];
+  function closeList() { results.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; }
+  function openList() {
+    var term = q.value.trim();
+    if (!term) { closeList(); return; }
+    shown = PRODUCTS.filter(function (p) {
+      return p[1].indexOf(term) !== -1 && state.basket.indexOf(p[0]) === -1;
+    }).slice(0, 8);
+    var html = '';
+    if (!shown.length) {
+      html = '<li class="none" role="option" aria-disabled="true">לא נמצאו מוצרים תואמים</li>';
+    } else {
+      shown.forEach(function (p, i) {
+        var m = minPriceFor(p[0]);
+        html += '<li role="option" data-add="' + p[0] + '" aria-selected="' + (i === active) + '"><span>' + esc(p[1]) + '</span>' +
+          (m != null ? '<span class="from">מ־' + fmt(m) + '</span>' : '') + '</li>';
+      });
+    }
+    results.innerHTML = html;
+    results.hidden = false;
+    q.setAttribute('aria-expanded', 'true');
+  }
+  function addProduct(pid) {
+    if (state.basket.indexOf(pid) === -1) state.basket.push(pid);
+    q.value = '';
+    closeList();
+    persist();
+    render();
+    q.focus();
+  }
+
+  q.addEventListener('input', function () { active = -1; openList(); });
+  q.addEventListener('keydown', function (e) {
+    if (results.hidden) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, shown.length - 1); openList(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); openList(); }
+    else if (e.key === 'Enter') { e.preventDefault(); var pick = shown[active >= 0 ? active : 0]; if (pick) addProduct(pick[0]); }
+    else if (e.key === 'Escape') { closeList(); }
+  });
+  results.addEventListener('mousedown', function (e) {
+    var li = e.target.closest('li[data-add]');
+    if (li) { e.preventDefault(); addProduct(li.getAttribute('data-add')); }
+  });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.search')) closeList(); });
+
+  /* ---------- Other events ---------- */
+  citySel.addEventListener('change', function () { state.city = citySel.value; persist(); closeList(); render(); });
+  host.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-rm]');
+    if (!b) return;
+    var id = b.getAttribute('data-rm');
+    state.basket = state.basket.filter(function (x) { return x !== id; });
+    persist(); render();
+  });
+  refreshBtn.addEventListener('click', function () {
+    if (refreshBtn.disabled) return;
+    refreshBtn.disabled = true;
+    refreshBtn.classList.add('spin');
+    setTimeout(function () {
+      state.version += 1;
+      state.updated = new Date();
+      refreshBtn.disabled = false;
+      refreshBtn.classList.remove('spin');
+      render();
+    }, 700);
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>
