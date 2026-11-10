@@ -1,0 +1,16 @@
+{
+  "chains": ["shufersal", "rami-levy", "yochananof", "osher-ad", "victory", "carrefour", "hatzi-hinam", "tiv-taam"],
+  "cities": [
+    { "key": "rehovot", "name": "רחובות", "match": ["רחובות"] },
+    { "key": "tel-aviv", "name": "תל אביב-יפו", "match": ["תל אביב", "תל-אביב"] },
+    { "key": "jerusalem", "name": "ירושלים", "match": ["ירושלים"] },
+    { "key": "haifa", "name": "חיפה", "match": ["חיפה"] },
+    { "key": "beer-sheva", "name": "באר שבע", "match": ["באר שבע", "באר-שבע"] },
+    { "key": "rishon", "name": "ראשון לציון", "match": ["ראשון לציון", "ראשון-לציון"] },
+    { "key": "netanya", "name": "נתניה", "match": ["נתניה"] },
+    { "key": "ashdod", "name": "אשדוד", "match": ["אשדוד"] }
+  ],
+  "stores_per_chain": 2,
+  "min_chains": 2,
+  "max_products": 3000
+}

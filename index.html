@@ -1,11 +1,15 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>הסל הזול</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&family=Rubik:wght@600;700&display=swap">
 <style>
-/* Layout: one working surface. Controls on top, a store-by-product price grid below, products down the right edge (RTL), stores across the header row, basket totals in a closing row. */
+/* Layout: one working surface. Controls on top, a store-by-product price grid below, products down the right edge (RTL), stores across the header row sorted cheapest first, basket totals in a closing row. */
 :root {
+  color-scheme: light;
   --bg: #F1F4F3;
   --surface: #FFFFFF;
   --fg: #14211D;
@@ -38,8 +42,9 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
-  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
   padding-block: 20px 40px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -66,7 +71,7 @@ button { font-family: inherit; font-size: 15px; cursor: pointer; }
 .controls { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: 12px; align-items: end; }
 @media (max-width: 560px) { .controls { grid-template-columns: 1fr; } }
 label.lbl { display: block; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .03em; margin-bottom: 4px; }
-select, input[type="search"] {
+select, input[type="search"], input[type="text"] {
   width: 100%; min-height: 44px; border: 1px solid var(--line); background: var(--surface); color: var(--fg);
   border-radius: 8px; padding: 8px 12px; font-family: inherit; font-size: 15px;
 }
@@ -88,8 +93,9 @@ select, input[type="search"] {
 }
 .results li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 6px; cursor: pointer; }
 .results li[aria-selected="true"], .results li:hover { background: var(--best-bg); color: var(--best-fg); }
-.results .size { color: var(--muted); font-size: 12px; }
+.results .size { color: var(--muted); font-size: 12px; margin-inline-start: 6px; }
 .results li[aria-selected="true"] .size, .results li:hover .size { color: inherit; }
+.results .nm { min-width: 0; }
 .results .from { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
 .results .none { color: var(--muted); cursor: default; }
 .results .none:hover { background: none; color: var(--muted); }
@@ -105,11 +111,10 @@ th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: c
 thead th { background: var(--surface); font-weight: 600; vertical-align: bottom; }
 th.prod, td.prod { text-align: right; position: sticky; right: 0; background: var(--surface); z-index: 2; min-width: 170px; border-left: 1px solid var(--line); }
 .chain { font-weight: 700; font-size: 14px; }
-.branch { font-weight: 400; font-size: 12px; color: var(--muted); }
+.branch { font-weight: 400; font-size: 12px; color: var(--muted); max-width: 120px; margin: 0 auto; overflow-wrap: anywhere; }
 tbody tr:last-child td, tfoot td { border-bottom: 0; }
 .pname { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .pname span.n { min-width: 0; }
-.pname small { display: block; color: var(--muted); font-size: 12px; }
 .rm {
   flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted);
   display: inline-flex; align-items: center; justify-content: center; padding: 0;
@@ -131,10 +136,12 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 .miss { display: block; font-size: 11px; font-weight: 500; margin-top: 2px; background: var(--warn-bg); color: var(--warn-fg); border-radius: 4px; padding: 1px 6px; }
 .empty { padding: 36px 16px; text-align: center; color: var(--muted); }
 .empty strong { display: block; color: var(--fg); font-size: 17px; margin-bottom: 4px; }
-.note { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+.note { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; margin: 0; }
 .note b { background: var(--warn-bg); color: var(--warn-fg); border-radius: 4px; padding: 0 6px; font-weight: 600; flex: none; }
+.warnline { font-size: 13px; background: var(--warn-bg); color: var(--warn-fg); border-radius: 8px; padding: 8px 12px; margin: 0; }
 </style>
-
+</head>
+<body>
 <div class="app" dir="rtl" lang="he">
   <header>
     <div>
@@ -155,7 +162,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
       <label class="lbl" for="city">עיר</label>
       <div class="cityrow">
         <select id="city"></select>
-        <button class="btn2" id="addCityBtn" type="button" aria-expanded="false" aria-controls="cityForm">+ עיר</button>
+        <button class="btn2" id="addCityBtn" type="button" aria-expanded="false" aria-controls="cityForm" hidden>+ עיר</button>
       </div>
       <form class="cityform" id="cityForm" hidden>
         <input id="cityName" type="text" maxlength="40" placeholder="שם העיר, למשל: אילת" aria-label="שם העיר להוספה" autocomplete="off">
@@ -169,21 +176,21 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     </div>
   </section>
 
+  <p class="warnline" id="warn" hidden></p>
   <section class="summary" id="summary" hidden aria-live="polite"></section>
 
   <section class="grid-wrap" aria-label="טבלת השוואת מחירים">
-    <div id="gridHost"></div>
+    <div id="gridHost"><div class="empty">טוען מחירים…</div></div>
   </section>
 
-  <p class="note"><b>נתוני דוגמה</b><span>המחירים והסניפים באפליקציה זו הם לצורך הדגמה בלבד. חיבור למחירים אמיתיים (קבצי השקיפות של הרשתות) דורש שרת שאוסף ומנקה אותם, והוא יכול להחליף את פונקציית getPrice בקוד.</span></p>
+  <p class="note" id="note"></p>
 </div>
 
 <script>
 (function () {
-  document.documentElement.dir = 'rtl';
-  document.documentElement.lang = 'he';
+  'use strict';
 
-  /* ---------- Example data layer (replace getPrice/getStores with a real API) ---------- */
+  /* ---------- Example data (used only when data/index.json is not available) ---------- */
   var CHAINS = {
     shufersal: { name: 'שופרסל', f: 1.08 },
     rami: { name: 'רמי לוי', f: 0.93 },
@@ -221,15 +228,53 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     ['p40', 'מיונז 500 גרם', 9.9]
   ];
   var BYID = {};
-  PRODUCTS.forEach(function (p) { BYID[p[0]] = { id: p[0], name: p[1], base: p[2] }; });
+  PRODUCTS.forEach(function (p) { BYID[p[0]] = { id: p[0], name: p[1], size: '', base: p[2] }; });
 
   function hash(s) {
     var h = 2166136261;
     for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
     return ((h >>> 0) % 100000) / 100000;
   }
+
+  /* ---------- Mode: live (data/*.json built by collect.py) or demo ---------- */
+  var live = false;
+  var liveIndex = null;   // data/index.json
+  var cityData = null;    // data/city-*.json of the selected city, with byId map
+  var catalog = [];       // searchable products of the current mode/city
+
+  function fetchJSON(path) {
+    return fetch(path + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+  function loadIndex() {
+    return fetchJSON('data/index.json').then(function (idx) {
+      if (idx && Array.isArray(idx.cities) && idx.cities.length) { liveIndex = idx; return true; }
+      return false;
+    }).catch(function () { return false; });
+  }
+  function loadCity(name) {
+    var c = null;
+    liveIndex.cities.forEach(function (x) { if (x.name === name) c = x; });
+    if (!c) return Promise.reject(new Error('city not found'));
+    return fetchJSON('data/' + c.file).then(function (d) {
+      d.byId = {};
+      catalog = d.products.map(function (p) {
+        d.byId[p.id] = { id: p.id, name: p.n, size: p.s || '', p: p.p };
+        return { id: p.id, name: p.n, size: p.s || '' };
+      });
+      cityData = d;
+    });
+  }
+
   function getStores(city) {
-    /* every chain appears in every city; listed branches keep their name, the rest get the city name */
+    if (live) {
+      return ((cityData && cityData.stores) || []).map(function (s, i) {
+        return { id: s.id, chain: { name: s.cn }, branch: s.b || '', idx: i, stale: !!s.stale, asOf: s.as_of || null };
+      });
+    }
+    /* demo: every chain appears in every city */
     var list = (CITIES[city] || []).slice();
     var have = {};
     list.forEach(function (s) { have[s[0]] = true; });
@@ -239,75 +284,115 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     });
   }
   function getPrice(pid, store, version) {
+    if (live) {
+      var pr = cityData && cityData.byId[pid];
+      var v = pr ? pr.p[store.idx] : null;
+      return v == null ? null : v;
+    }
     if (hash(pid + store.id + 'avail') > 0.94) return null;
     var p = BYID[pid];
     var branchNoise = 1 + (hash(store.id + pid) - 0.5) * 0.12;
     var drift = 1 + (hash(pid + store.id + 'v' + version) - 0.5) * 0.07;
     return Math.round(p.base * store.chain.f * branchNoise * drift * 10) / 10;
   }
+  function productById(pid) { return live ? (cityData && cityData.byId[pid]) : BYID[pid]; }
 
   /* ---------- State ---------- */
-  var state = { city: 'רחובות', basket: ['p1', 'p2', 'p3', 'p10', 'p17'], customCities: [], version: 3, updated: new Date() };
-  try {
-    var saved = JSON.parse(localStorage.getItem('cheap-basket') || 'null');
-    if (saved && Array.isArray(saved.customCities)) {
-      state.customCities = saved.customCities.filter(function (c) { return typeof c === 'string' && c.length > 0 && c.length <= 40 && !CITIES[c]; }).slice(0, 50);
+  var state = { city: '', basket: [], customCities: [], version: 3, updated: new Date() };
+  function storeKey() { return live ? 'cheap-basket-live' : 'cheap-basket'; }
+  function initState() {
+    state.city = live ? liveIndex.cities[0].name : 'רחובות';
+    state.basket = live ? [] : ['p1', 'p2', 'p3', 'p10', 'p17'];
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(storeKey()) || 'null'); } catch (e) {}
+    if (!saved) return;
+    if (!live && Array.isArray(saved.customCities)) {
+      state.customCities = saved.customCities.filter(function (c) {
+        return typeof c === 'string' && c.length > 0 && c.length <= 40 && !CITIES[c];
+      }).slice(0, 50);
     }
-    if (saved && (CITIES[saved.city] || state.customCities.indexOf(saved.city) !== -1)) state.city = saved.city;
-    if (saved && Array.isArray(saved.basket)) state.basket = saved.basket.filter(function (id) { return BYID[id]; });
-  } catch (e) {}
-  function persist() {
-    try { localStorage.setItem('cheap-basket', JSON.stringify({ city: state.city, basket: state.basket, customCities: state.customCities })); } catch (e) {}
+    var valid = live
+      ? liveIndex.cities.some(function (c) { return c.name === saved.city; })
+      : (CITIES[saved.city] || state.customCities.indexOf(saved.city) !== -1);
+    if (valid) state.city = saved.city;
+    if (Array.isArray(saved.basket)) {
+      state.basket = saved.basket.filter(function (id) {
+        return typeof id === 'string' && (live || BYID[id]);
+      }).slice(0, 100);
+    }
   }
+  function persist() {
+    try {
+      localStorage.setItem(storeKey(), JSON.stringify({ city: state.city, basket: state.basket, customCities: state.customCities }));
+    } catch (e) {}
+  }
+  function basketIds() { return state.basket.filter(function (id) { return !!productById(id); }); }
 
   /* ---------- Elements ---------- */
   var $ = function (id) { return document.getElementById(id); };
   var citySel = $('city'), q = $('q'), results = $('results'), host = $('gridHost'), summary = $('summary');
-  var stamp = $('stamp'), refreshBtn = $('refresh');
-
-  function fillCities() {
-    citySel.innerHTML = '';
-    Object.keys(CITIES).concat(state.customCities).forEach(function (c) {
-      var o = document.createElement('option'); o.value = c; o.textContent = c; citySel.appendChild(o);
-    });
-    citySel.value = state.city;
-  }
-  fillCities();
-
+  var stamp = $('stamp'), refreshBtn = $('refresh'), warn = $('warn'), note = $('note');
   var addCityBtn = $('addCityBtn'), cityForm = $('cityForm'), cityName = $('cityName');
-  function toggleCityForm(open) {
-    cityForm.hidden = !open;
-    addCityBtn.setAttribute('aria-expanded', String(open));
-    if (open) cityName.focus();
-  }
-  addCityBtn.addEventListener('click', function () { toggleCityForm(cityForm.hidden); });
-  cityName.addEventListener('keydown', function (e) { if (e.key === 'Escape') { toggleCityForm(false); addCityBtn.focus(); } });
-  cityForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var name = cityName.value.replace(/\s+/g, ' ').trim();
-    if (!name) { cityName.focus(); return; }
-    var all = Object.keys(CITIES).concat(state.customCities);
-    if (all.indexOf(name) === -1) state.customCities.push(name);
-    state.city = name;
-    cityName.value = '';
-    toggleCityForm(false);
-    fillCities(); persist(); closeList(); render();
-  });
 
   function fmt(n) { return '₪' + n.toFixed(2); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function minPriceFor(pid) {
-    var stores = getStores(state.city), m = null;
-    stores.forEach(function (s) { var p = getPrice(pid, s, state.version); if (p != null && (m == null || p < m)) m = p; });
+    var m = null;
+    getStores(state.city).forEach(function (s) {
+      var p = getPrice(pid, s, state.version);
+      if (p != null && (m == null || p < m)) m = p;
+    });
     return m;
+  }
+  function ago(d) {
+    var m = Math.round((Date.now() - d.getTime()) / 60000);
+    if (m < 2) return 'עכשיו';
+    if (m < 60) return 'לפני ' + m + ' דקות';
+    var h = Math.round(m / 60);
+    if (h < 48) return 'לפני ' + h + ' שעות';
+    return 'לפני ' + Math.round(h / 24) + ' ימים';
+  }
+  function updateStamp() {
+    if (live && cityData && cityData.updated_at) {
+      var d = new Date(cityData.updated_at);
+      if (!isNaN(d.getTime())) {
+        stamp.textContent = 'נתונים מ־' + d.toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' · ' + ago(d);
+        return;
+      }
+    }
+    stamp.textContent = 'עודכן ' + state.updated.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  function updateNotes() {
+    if (live) {
+      note.innerHTML = '<span>המחירים נלקחים מקבצי שקיפות המחירים שהרשתות מפרסמות לפי חוק, ונאספים אוטומטית כל כמה שעות. הכפתור "רענן מחירים" טוען את העדכון האחרון. מחירי המבצעים אינם כלולים, ומחיר בסניף עשוי להיות שונה מהמחיר בקופה.</span>';
+      var bad = [];
+      var chains = (liveIndex && liveIndex.chains) || {};
+      Object.keys(chains).forEach(function (k) { if (chains[k] && chains[k].ok === false) bad.push(chains[k].name || k); });
+      if (bad.length) {
+        warn.hidden = false;
+        warn.textContent = 'לא התקבל עדכון חדש מ: ' + bad.join(', ') + '. אם יש נתונים קודמים, הם מסומנים כישנים.';
+      } else {
+        warn.hidden = true;
+      }
+    } else {
+      note.innerHTML = '<b>נתוני דוגמה</b><span>המחירים והסניפים באפליקציה זו הם לצורך הדגמה בלבד. כדי לראות מחירים אמיתיים, האתר צריך לרוץ עם קבצי הנתונים שנוצרים על ידי collect.py.</span>';
+      warn.hidden = true;
+    }
   }
 
   /* ---------- Render ---------- */
   function render() {
     var stores = getStores(state.city);
-    stamp.textContent = 'עודכן ' + state.updated.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    var ids = basketIds();
+    updateStamp();
+    updateNotes();
 
-    if (!state.basket.length) {
+    if (!stores.length) {
+      host.innerHTML = '<div class="empty"><strong>אין נתונים לעיר הזו</strong>בחר עיר אחרת.</div>';
+      summary.hidden = true;
+      return;
+    }
+    if (!ids.length) {
       host.innerHTML = '<div class="empty"><strong>הסל ריק</strong>חפש מוצר בשדה למעלה כדי להתחיל להשוות מחירים.</div>';
       summary.hidden = true;
       return;
@@ -316,7 +401,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     /* sort stores by basket total, cheapest first; baskets with missing items go last */
     var stats = stores.map(function (s) {
       var sum = 0, missing = 0;
-      state.basket.forEach(function (pid) {
+      ids.forEach(function (pid) {
         var pr = getPrice(pid, s, state.version);
         if (pr == null) missing++; else sum += pr;
       });
@@ -328,18 +413,19 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     var totals = stores.map(function () { return { sum: 0, missing: 0 }; });
     var head = '<th class="prod" scope="col">מוצר</th>';
     stores.forEach(function (s) {
-      head += '<th scope="col"><div class="chain">' + esc(s.chain.name) + '</div><div class="branch">' + esc(s.branch) + '</div></th>';
+      head += '<th scope="col"><div class="chain">' + esc(s.chain.name) + '</div><div class="branch">' + esc(s.branch) + '</div>' +
+        (s.stale ? '<span class="miss" title="לא התקבל עדכון חדש מהרשת, מוצגים נתונים קודמים">נתונים ישנים</span>' : '') + '</th>';
     });
 
     var body = '';
-    state.basket.forEach(function (pid) {
+    ids.forEach(function (pid) {
       var prices = stores.map(function (s) { return getPrice(pid, s, state.version); });
-      var prev = stores.map(function (s) { return getPrice(pid, s, state.version - 1); });
+      var prev = stores.map(function (s) { return live ? null : getPrice(pid, s, state.version - 1); });
       var min = null;
       prices.forEach(function (p) { if (p != null && (min == null || p < min)) min = p; });
-      var p = BYID[pid];
+      var p = productById(pid);
       body += '<tr><td class="prod"><div class="pname"><span class="n">' + esc(p.name) + '</span>' +
-        '<button class="rm" type="button" data-rm="' + pid + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' +
+        '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div></td>';
       prices.forEach(function (pr, i) {
         if (pr == null) { body += '<td class="na">אין במלאי</td>'; totals[i].missing++; return; }
@@ -354,12 +440,11 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
       body += '</tr>';
     });
 
-    var complete = [];
-    totals.forEach(function (t, i) { if (t.missing === 0) complete.push({ i: i, sum: t.sum }); });
     var bestIdx = -1, worst = null;
-    complete.forEach(function (c) {
-      if (bestIdx < 0 || c.sum < totals[bestIdx].sum) bestIdx = c.i;
-      if (worst == null || c.sum > worst) worst = c.sum;
+    totals.forEach(function (t, i) {
+      if (t.missing !== 0) return;
+      if (bestIdx < 0 || t.sum < totals[bestIdx].sum) bestIdx = i;
+      if (worst == null || t.sum > worst) worst = t.sum;
     });
 
     var foot = '<td class="prod">סה״כ הסל</td>';
@@ -384,22 +469,32 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     }
   }
 
+  function showError(msg) {
+    host.innerHTML = '<div class="empty"><strong>' + esc(msg) + '</strong>נסה לרענן את הדף בעוד רגע.</div>';
+    summary.hidden = true;
+  }
+
   /* ---------- Search dropdown ---------- */
   var active = -1, shown = [];
   function closeList() { results.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; }
   function openList() {
     var term = q.value.trim();
     if (!term) { closeList(); return; }
-    shown = PRODUCTS.filter(function (p) {
-      return p[1].indexOf(term) !== -1 && state.basket.indexOf(p[0]) === -1;
-    }).slice(0, 8);
+    var words = term.split(/\s+/).filter(Boolean);
+    shown = catalog.filter(function (p) {
+      if (state.basket.indexOf(p.id) !== -1) return false;
+      return words.every(function (w) { return p.name.indexOf(w) !== -1; });
+    });
+    shown.sort(function (a, b) { return a.name.indexOf(words[0]) - b.name.indexOf(words[0]); });
+    shown = shown.slice(0, 8);
     var html = '';
     if (!shown.length) {
       html = '<li class="none" role="option" aria-disabled="true">לא נמצאו מוצרים תואמים</li>';
     } else {
       shown.forEach(function (p, i) {
-        var m = minPriceFor(p[0]);
-        html += '<li role="option" data-add="' + p[0] + '" aria-selected="' + (i === active) + '"><span>' + esc(p[1]) + '</span>' +
+        var m = minPriceFor(p.id);
+        var sz = p.size && p.name.indexOf(p.size) === -1 ? '<span class="size">' + esc(p.size) + '</span>' : '';
+        html += '<li role="option" data-add="' + esc(p.id) + '" aria-selected="' + (i === active) + '"><span class="nm">' + esc(p.name) + sz + '</span>' +
           (m != null ? '<span class="from">מ־' + fmt(m) + '</span>' : '') + '</li>';
       });
     }
@@ -415,13 +510,12 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     render();
     q.focus();
   }
-
   q.addEventListener('input', function () { active = -1; openList(); });
   q.addEventListener('keydown', function (e) {
     if (results.hidden) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, shown.length - 1); openList(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); openList(); }
-    else if (e.key === 'Enter') { e.preventDefault(); var pick = shown[active >= 0 ? active : 0]; if (pick) addProduct(pick[0]); }
+    else if (e.key === 'Enter') { e.preventDefault(); var pick = shown[active >= 0 ? active : 0]; if (pick) addProduct(pick.id); }
     else if (e.key === 'Escape') { closeList(); }
   });
   results.addEventListener('mousedown', function (e) {
@@ -430,8 +524,44 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   });
   document.addEventListener('click', function (e) { if (!e.target.closest('.search')) closeList(); });
 
+  /* ---------- Cities ---------- */
+  function fillCities() {
+    var names = live
+      ? liveIndex.cities.map(function (c) { return c.name; })
+      : Object.keys(CITIES).concat(state.customCities);
+    citySel.innerHTML = '';
+    names.forEach(function (c) {
+      var o = document.createElement('option'); o.value = c; o.textContent = c; citySel.appendChild(o);
+    });
+    citySel.value = state.city;
+  }
+  function toggleCityForm(open) {
+    cityForm.hidden = !open;
+    addCityBtn.setAttribute('aria-expanded', String(open));
+    if (open) cityName.focus();
+  }
+  addCityBtn.addEventListener('click', function () { toggleCityForm(cityForm.hidden); });
+  cityName.addEventListener('keydown', function (e) { if (e.key === 'Escape') { toggleCityForm(false); addCityBtn.focus(); } });
+  cityForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (live) return;
+    var name = cityName.value.replace(/\s+/g, ' ').trim();
+    if (!name) { cityName.focus(); return; }
+    var all = Object.keys(CITIES).concat(state.customCities);
+    if (all.indexOf(name) === -1) state.customCities.push(name);
+    state.city = name;
+    cityName.value = '';
+    toggleCityForm(false);
+    fillCities(); persist(); closeList(); render();
+  });
+  citySel.addEventListener('change', function () {
+    state.city = citySel.value; persist(); closeList();
+    if (!live) { render(); return; }
+    host.innerHTML = '<div class="empty">טוען מחירים…</div>';
+    loadCity(state.city).then(render).catch(function () { showError('הטעינה נכשלה'); });
+  });
+
   /* ---------- Other events ---------- */
-  citySel.addEventListener('change', function () { state.city = citySel.value; persist(); closeList(); render(); });
   host.addEventListener('click', function (e) {
     var b = e.target.closest('[data-rm]');
     if (!b) return;
@@ -443,17 +573,44 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     if (refreshBtn.disabled) return;
     refreshBtn.disabled = true;
     refreshBtn.classList.add('spin');
+    function done() { refreshBtn.disabled = false; refreshBtn.classList.remove('spin'); }
+    if (live) {
+      fetchJSON('data/index.json').then(function (idx) {
+        liveIndex = idx;
+        return loadCity(state.city);
+      }).then(function () { done(); render(); })
+        .catch(function () { done(); stamp.textContent = 'הרענון נכשל, נסה שוב'; });
+      return;
+    }
     setTimeout(function () {
       state.version += 1;
       state.updated = new Date();
-      refreshBtn.disabled = false;
-      refreshBtn.classList.remove('spin');
+      done();
       render();
     }, 700);
   });
 
-  render();
+  /* ---------- Start ---------- */
+  loadIndex().then(function (ok) {
+    live = ok;
+    initState();
+    addCityBtn.hidden = live;
+    fillCities();
+    if (!live) {
+      catalog = PRODUCTS.map(function (p) { return { id: p[0], name: p[1], size: '' }; });
+      render();
+      return;
+    }
+    return loadCity(state.city).then(render).catch(function () {
+      live = false;
+      initState();
+      addCityBtn.hidden = false;
+      fillCities();
+      catalog = PRODUCTS.map(function (p) { return { id: p[0], name: p[1], size: '' }; });
+      render();
+    });
+  });
 })();
 </script>
-
-</body></html>
+</body>
+</html>
