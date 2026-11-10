@@ -556,7 +556,7 @@
       "match": [
         "מעלה אדומים"
       ],
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "modiin-illit",
