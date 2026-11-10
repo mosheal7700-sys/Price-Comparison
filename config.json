@@ -184,7 +184,7 @@
       "match": [
         "הוד השרון"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "rosh-haayin",
@@ -192,7 +192,7 @@
       "match": [
         "ראש העין"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "nes-ziona",
@@ -200,7 +200,7 @@
       "match": [
         "נס ציונה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "lod",
@@ -208,7 +208,7 @@
       "match": [
         "לוד"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ramla",
@@ -216,7 +216,7 @@
       "match": [
         "רמלה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "eilat",
@@ -224,7 +224,7 @@
       "match": [
         "אילת"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "nazareth",
@@ -232,7 +232,7 @@
       "match": [
         "נצרת"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "nof-hagalil",
@@ -241,7 +241,7 @@
         "נוף הגליל",
         "נצרת עילית"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-ata",
@@ -249,7 +249,7 @@
       "match": [
         "קרית אתא"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "givatayim",
@@ -257,7 +257,7 @@
       "match": [
         "גבעתיים"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "nahariya",
@@ -265,7 +265,7 @@
       "match": [
         "נהריה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-gat",
@@ -273,7 +273,7 @@
       "match": [
         "קרית גת"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "afula",
@@ -281,7 +281,7 @@
       "match": [
         "עפולה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "acre",
@@ -289,7 +289,7 @@
       "match": [
         "עכו"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "karmiel",
@@ -297,7 +297,7 @@
       "match": [
         "כרמיאל"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "tiberias",
@@ -305,7 +305,7 @@
       "match": [
         "טבריה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-motzkin",
@@ -313,7 +313,7 @@
       "match": [
         "קרית מוצקין"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-bialik",
@@ -321,7 +321,7 @@
       "match": [
         "קרית ביאליק"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-ono",
@@ -329,7 +329,7 @@
       "match": [
         "קרית אונו"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "yavne",
@@ -337,7 +337,7 @@
       "match": [
         "יבנה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ramat-hasharon",
@@ -345,7 +345,7 @@
       "match": [
         "רמת השרון"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "sderot",
@@ -353,7 +353,7 @@
       "match": [
         "שדרות"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "dimona",
@@ -361,7 +361,7 @@
       "match": [
         "דימונה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "yokneam",
@@ -370,7 +370,7 @@
         "יקנעם עילית",
         "יקנעם"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "or-yehuda",
@@ -378,7 +378,7 @@
       "match": [
         "אור יהודה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-shmona",
@@ -386,7 +386,7 @@
       "match": [
         "קרית שמונה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "safed",
@@ -394,7 +394,7 @@
       "match": [
         "צפת"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "netivot",
@@ -402,7 +402,7 @@
       "match": [
         "נתיבות"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ofakim",
@@ -410,7 +410,7 @@
       "match": [
         "אופקים"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "arad",
@@ -418,7 +418,7 @@
       "match": [
         "ערד"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "mevaseret-zion",
@@ -426,7 +426,7 @@
       "match": [
         "מבשרת ציון"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "migdal-haemek",
@@ -434,7 +434,7 @@
       "match": [
         "מגדל העמק"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "beit-shean",
@@ -442,7 +442,7 @@
       "match": [
         "בית שאן"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-malachi",
@@ -450,7 +450,7 @@
       "match": [
         "קרית מלאכי"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "or-akiva",
@@ -458,7 +458,7 @@
       "match": [
         "אור עקיבא"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "shoham",
@@ -466,7 +466,7 @@
       "match": [
         "שוהם"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-yam",
@@ -474,7 +474,7 @@
       "match": [
         "קרית ים"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "tirat-carmel",
@@ -482,7 +482,7 @@
       "match": [
         "טירת כרמל"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "yehud",
@@ -490,7 +490,7 @@
       "match": [
         "יהוד"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "gedera",
@@ -498,7 +498,7 @@
       "match": [
         "גדרה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kfar-yona",
@@ -506,7 +506,7 @@
       "match": [
         "כפר יונה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "pardes-hanna",
@@ -515,7 +515,7 @@
         "פרדס חנה",
         "כרכור"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "zichron-yaakov",
@@ -524,7 +524,7 @@
         "זכרון יעקב",
         "זיכרון יעקב"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "binyamina",
@@ -532,7 +532,7 @@
       "match": [
         "בנימינה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "caesarea",
@@ -540,7 +540,7 @@
       "match": [
         "קיסריה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ariel",
@@ -548,7 +548,7 @@
       "match": [
         "אריאל"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "maale-adumim",
@@ -556,7 +556,7 @@
       "match": [
         "מעלה אדומים"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "modiin-illit",
@@ -564,7 +564,7 @@
       "match": [
         "מודיעין עילית"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "beitar-illit",
@@ -572,7 +572,7 @@
       "match": [
         "ביתר עילית"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "elad",
@@ -580,7 +580,7 @@
       "match": [
         "אלעד"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "givat-shmuel",
@@ -588,7 +588,7 @@
       "match": [
         "גבעת שמואל"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-tivon",
@@ -596,7 +596,7 @@
       "match": [
         "קרית טבעון"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "maalot-tarshiha",
@@ -605,7 +605,7 @@
         "מעלות תרשיחא",
         "מעלות"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "umm-al-fahm",
@@ -613,7 +613,7 @@
       "match": [
         "אום אל פחם"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "tamra",
@@ -621,7 +621,7 @@
       "match": [
         "טמרה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "sakhnin",
@@ -629,7 +629,7 @@
       "match": [
         "סחנין"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "taibe",
@@ -637,7 +637,7 @@
       "match": [
         "טייבה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kafr-qasim",
@@ -645,7 +645,7 @@
       "match": [
         "כפר קאסם"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "rahat",
@@ -653,7 +653,7 @@
       "match": [
         "רהט"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "shefa-amr",
@@ -661,7 +661,7 @@
       "match": [
         "שפרעם"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "nesher",
@@ -669,7 +669,7 @@
       "match": [
         "נשר"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "ganei-tikva",
@@ -678,7 +678,7 @@
         "גני תקווה",
         "גני תקוה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "kiryat-ekron",
@@ -686,7 +686,7 @@
       "match": [
         "קרית עקרון"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "gan-yavne",
@@ -694,7 +694,7 @@
       "match": [
         "גן יבנה"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "beer-yaakov",
@@ -702,7 +702,7 @@
       "match": [
         "באר יעקב"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "yeruham",
@@ -710,7 +710,7 @@
       "match": [
         "ירוחם"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "mitzpe-ramon",
@@ -718,7 +718,7 @@
       "match": [
         "מצפה רמון"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "katzrin",
@@ -726,7 +726,7 @@
       "match": [
         "קצרין"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "hatzor",
@@ -734,7 +734,7 @@
       "match": [
         "חצור הגלילית"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "rosh-pina",
@@ -742,7 +742,7 @@
       "match": [
         "ראש פינה"
       ],
-      "enabled": true
+      "enabled": false
     }
   ]
 }

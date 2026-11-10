@@ -196,7 +196,8 @@ def main() -> int:
                             entries.append({"chain": slug, "store_id": sid, "label": st.get("b", "")})
         plans.append((city, entries))
 
-    # 3. download price files
+    # 3. one city at a time: download its price files, write the city file, free the memory.
+    # (Holding every parsed price file at once would not fit in the memory of a GitHub runner.)
     def price_task(job):
         chain, sid = job
         try:
@@ -204,29 +205,26 @@ def main() -> int:
         except Exception as exc:
             return job, None, str(exc)[:200]
 
-    files: dict[tuple, object] = {}
-    errors: dict[tuple, str] = {}
-    log(f"[prices] downloading {len(jobs)} branch files")
-    with ThreadPoolExecutor(WORKERS) as ex:
-        for job, pf, err in ex.map(price_task, list(jobs)):
-            if err:
-                errors[job] = err
-                log(f"[prices] {job[0]}/{job[1]}: FAILED {err}")
-            else:
-                files[job] = pf
-
-    for slug in chains_cfg:
-        mine = [j for j in jobs if j[0] == slug]
-        if mine and not any(j in files for j in mine) and status[slug]["ok"]:
-            status[slug]["ok"] = False
-            status[slug]["error"] = next((errors[j] for j in mine if j in errors), "no price files")
-        status[slug]["branches_ok"] = sum(1 for j in mine if j in files)
-        status[slug]["branches_failed"] = sum(1 for j in mine if j not in files)
+    counters = {slug: {"ok": 0, "failed": 0, "error": None} for slug in chains_cfg}
+    pool = ThreadPoolExecutor(WORKERS)
+    started = time.time()
 
     # 4. build one file per city
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     index_cities = []
-    for city, entries in plans:
+    for n, (city, entries) in enumerate(plans, 1):
+        files: dict[tuple, object] = {}
+        city_jobs = list({(e["chain"], e["store_id"]) for e in entries if e["chain"] in store_lists})
+        for job, pf, err in pool.map(price_task, city_jobs):
+            if err:
+                counters[job[0]]["failed"] += 1
+                counters[job[0]]["error"] = counters[job[0]]["error"] or err
+                log(f"[prices] {job[0]}/{job[1]}: FAILED {err}")
+            else:
+                counters[job[0]]["ok"] += 1
+                files[job] = pf
+        log(f"[{n}/{len(plans)}] {city['name']}: {len(files)}/{len(city_jobs)} files "
+            f"({int(time.time() - started)}s elapsed)")
         prev = get_prev(city["key"]) if any((e["chain"], e["store_id"]) not in files for e in entries) else None
         prev_idx = {}
         if prev:
@@ -323,6 +321,17 @@ def main() -> int:
             "stores": len(columns), "products": len(products),
         })
         log(f"[city] {city['name']}: {len(columns)} branches, {len(products)} products")
+        files.clear()
+        prev_cache.pop(city['key'], None)
+
+    pool.shutdown()
+    for slug in chains_cfg:
+        c = counters[slug]
+        if status[slug]["ok"] and c["failed"] and not c["ok"]:
+            status[slug]["ok"] = False
+            status[slug]["error"] = c["error"] or "no price files"
+        status[slug]["branches_ok"] = c["ok"]
+        status[slug]["branches_failed"] = c["failed"]
 
     index = {"generated_at": now, "cities": index_cities, "chains": status}
     (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
