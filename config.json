@@ -73,7 +73,7 @@
     {"key": "binyamina", "name": "בנימינה", "match": ["בנימינה"], "enabled": false},
     {"key": "caesarea", "name": "קיסריה", "match": ["קיסריה"], "enabled": false},
     {"key": "ariel", "name": "אריאל", "match": ["אריאל"], "enabled": false},
-    {"key": "maale-adumim", "name": "מעלה אדומים", "match": ["מעלה אדומים"], "enabled": true},
+    {"key": "maale-adumim", "name": "מעלה אדומים", "match": ["מעלה אדומים"], "enabled": false},
     {"key": "modiin-illit", "name": "מודיעין עילית", "match": ["מודיעין עילית"], "enabled": false},
     {"key": "beitar-illit", "name": "ביתר עילית", "match": ["ביתר עילית"], "enabled": false},
     {"key": "elad", "name": "אלעד", "match": ["אלעד"], "enabled": false},
