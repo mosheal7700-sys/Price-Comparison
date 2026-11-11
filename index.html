@@ -140,6 +140,13 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 .note { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; margin: 0; }
 .note b { background: var(--warn-bg); color: var(--warn-fg); border-radius: 4px; padding: 0 6px; font-weight: 600; flex: none; }
 .warnline { font-size: 13px; background: var(--warn-bg); color: var(--warn-fg); border-radius: 8px; padding: 8px 12px; margin: 0; }
+.fail { padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; text-align: right; }
+.fail h2 { margin: 0; font-family: var(--font-display); font-size: 18px; color: var(--up); }
+.fail p, .fail li { margin: 0; color: var(--fg); }
+.fail ul { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 4px; }
+.fail code { direction: ltr; unicode-bidi: embed; background: var(--bg); border-radius: 4px; padding: 0 4px; font-size: 13px; }
+.fail .chainlist { font-size: 13px; color: var(--muted); }
+.fail .btn { align-self: flex-start; }
 </style>
 </head>
 <body>
@@ -161,14 +168,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   <section class="controls" aria-label="סינון וחיפוש">
     <div>
       <label class="lbl" for="city">עיר</label>
-      <div class="cityrow">
-        <select id="city"></select>
-        <button class="btn2" id="addCityBtn" type="button" aria-expanded="false" aria-controls="cityForm" hidden>+ עיר</button>
-      </div>
-      <form class="cityform" id="cityForm" hidden>
-        <input id="cityName" type="text" maxlength="40" placeholder="שם העיר, למשל: אילת" aria-label="שם העיר להוספה" autocomplete="off">
-        <button class="btn" type="submit">הוסף</button>
-      </form>
+      <select id="city"></select>
     </div>
     <div class="search">
       <label class="lbl" for="q">הוסף מוצר לסל</label>
@@ -191,74 +191,29 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 (function () {
   'use strict';
 
-  /* ---------- Example data (used only when data/index.json is not available) ---------- */
-  var CHAINS = {
-    shufersal: { name: 'שופרסל', f: 1.08 },
-    rami: { name: 'רמי לוי', f: 0.93 },
-    yohananof: { name: 'יוחננוף', f: 0.96 },
-    victory: { name: 'ויקטורי', f: 1.04 },
-    yeinot: { name: 'יינות ביתן', f: 1.06 },
-    osherad: { name: 'אושר עד', f: 0.95 },
-    mega: { name: 'מגה', f: 1.02 },
-    hatzi: { name: 'חצי חינם', f: 0.91 }
-  };
-  var CITIES = {
-    'תל אביב-יפו': [['shufersal', 'דיזנגוף'], ['rami', 'הנמל'], ['victory', 'אבן גבירול'], ['yeinot', 'רמת אביב'], ['mega', 'יפו']],
-    'ירושלים': [['shufersal', 'תלפיות'], ['rami', 'תלפיות'], ['yohananof', 'מלחה'], ['mega', 'רחביה']],
-    'חיפה': [['shufersal', 'הדר'], ['rami', 'קריות'], ['victory', 'הנמל'], ['yeinot', 'קניון חיפה']],
-    'באר שבע': [['rami', 'הנגב'], ['yohananof', 'באר שבע'], ['osherad', 'אזור תעשייה'], ['shufersal', 'נווה זאב']],
-    'רחובות': [['shufersal', 'הרצל'], ['rami', 'רחובות'], ['yohananof', 'קרית משה'], ['hatzi', 'רחובות']],
-    'ראשון לציון': [['rami', 'ראשון לציון'], ['shufersal', 'נחלת יהודה'], ['victory', 'הראשונים'], ['yeinot', 'קניון הזהב']],
-    'נתניה': [['shufersal', 'נתניה'], ['rami', 'פולג'], ['osherad', 'נתניה'], ['mega', 'נתניה']],
-    'אשדוד': [['rami', 'אשדוד'], ['yohananof', 'אשדוד'], ['osherad', 'אשדוד'], ['hatzi', 'אשדוד']]
-  };
-  var PRODUCTS = [
-    ['p1', 'חלב טרה 3% 1 ליטר', 6.4], ['p2', 'לחם אחיד פרוס 750 גרם', 8.2], ['p3', 'ביצים L תריסר', 13.9],
-    ['p4', 'גבינה לבנה 5% 250 גרם', 5.9], ['p5', 'גבינה צהובה עמק 28% 200 גרם', 11.5], ['p6', 'שמנת מתוקה 38% 250 מ"ל', 8.9],
-    ['p7', 'יוגורט תות 150 גרם', 3.4], ['p8', 'חמאה 200 גרם', 9.9], ['p9', 'קוטג׳ 5% 250 גרם', 5.6],
-    ['p10', 'אורז בסמטי 1 ק"ג', 12.9], ['p11', 'פסטה ספגטי 500 גרם', 5.9], ['p12', 'שמן קנולה 1 ליטר', 11.9],
-    ['p13', 'שמן זית כתית מעולה 750 מ"ל', 39.9], ['p14', 'סוכר 1 ק"ג', 5.9], ['p15', 'קמח לבן 1 ק"ג', 4.9],
-    ['p16', 'מלח שולחן 1 ק"ג', 2.9], ['p17', 'עגבניות 1 ק"ג', 6.9], ['p18', 'מלפפונים 1 ק"ג', 6.5],
-    ['p19', 'בצל יבש 1 ק"ג', 4.5], ['p20', 'תפוחי אדמה 1 ק"ג', 5.2], ['p21', 'גזר 1 ק"ג', 4.9],
-    ['p22', 'בננות 1 ק"ג', 7.9], ['p23', 'תפוחים 1 ק"ג', 9.9], ['p24', 'חזה עוף טרי 1 ק"ג', 36.9],
-    ['p25', 'שניצל עוף קפוא 1 ק"ג', 34.9], ['p26', 'טחינה גולמית 500 גרם', 17.9], ['p27', 'חומוס מוכן 400 גרם', 9.5],
-    ['p28', 'טונה בשמן 4 יח׳', 22.9], ['p29', 'קורנפלקס 750 גרם', 17.9], ['p30', 'קפה נמס 200 גרם', 24.9],
-    ['p31', 'תה ויסוצקי 25 שקיות', 11.9], ['p32', 'מים מינרליים 6x1.5 ליטר', 14.9], ['p33', 'קולה 1.5 ליטר', 7.9],
-    ['p34', 'נייר טואלט 32 גלילים', 39.9], ['p35', 'אבקת כביסה 3 ק"ג', 36.9], ['p36', 'נוזל כלים 750 מ"ל', 9.9],
-    ['p37', 'שוקולד מריר 100 גרם', 7.9], ['p38', 'עדשים כתומות 500 גרם', 8.9], ['p39', 'קטשופ 750 גרם', 11.5],
-    ['p40', 'מיונז 500 גרם', 9.9]
-  ];
-  var BYID = {};
-  PRODUCTS.forEach(function (p) { BYID[p[0]] = { id: p[0], name: p[1], size: '', base: p[2] }; });
-
-  function hash(s) {
-    var h = 2166136261;
-    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return ((h >>> 0) % 100000) / 100000;
-  }
-
-  /* ---------- Mode: live (data/*.json built by collect.py) or demo ---------- */
-  var live = false;
+  /* Prices come only from data/*.json, built by collect.py (GitHub Actions).
+     There is no sample data: when the files are missing the page says exactly what failed. */
   var liveIndex = null;   // data/index.json
   var cityData = null;    // data/city-*.json of the selected city, with byId map
-  var catalog = [];       // searchable products of the current mode/city
+  var catalog = [];       // searchable products of the selected city
 
   function fetchJSON(path) {
     return fetch(path + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
       return r.json();
     });
   }
   function loadIndex() {
     return fetchJSON('data/index.json').then(function (idx) {
-      if (idx && Array.isArray(idx.cities) && idx.cities.length) { liveIndex = idx; return true; }
-      return false;
-    }).catch(function () { return false; });
+      if (!idx || !Array.isArray(idx.cities)) { var e = new Error('bad format'); e.kind = 'format'; throw e; }
+      liveIndex = idx;
+      if (!idx.cities.length) { var e2 = new Error('no cities'); e2.kind = 'empty'; throw e2; }
+    });
   }
   function loadCity(name) {
     var c = null;
     liveIndex.cities.forEach(function (x) { if (x.name === name) c = x; });
-    if (!c) return Promise.reject(new Error('city not found'));
+    if (!c) { var e = new Error('city not found'); e.kind = 'nocity'; return Promise.reject(e); }
     return fetchJSON('data/' + c.file).then(function (d) {
       d.byId = {};
       catalog = d.products.map(function (p) {
@@ -266,66 +221,37 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
         return { id: p.id, name: p.n, size: p.s || '', w: !!p.w };
       });
       cityData = d;
-    });
+    }).catch(function (err) { err.file = 'data/' + c.file; throw err; });
   }
 
-  function getStores(city) {
-    if (live) {
-      return ((cityData && cityData.stores) || []).map(function (s, i) {
-        return { id: s.id, chain: { name: s.cn }, branch: s.b || '', idx: i, stale: !!s.stale, asOf: s.as_of || null };
-      });
-    }
-    /* demo: every chain appears in every city */
-    var list = (CITIES[city] || []).slice();
-    var have = {};
-    list.forEach(function (s) { have[s[0]] = true; });
-    Object.keys(CHAINS).forEach(function (k) { if (!have[k]) list.push([k, city]); });
-    return list.map(function (s, i) {
-      return { id: city + '|' + s[0] + '|' + s[1], chain: CHAINS[s[0]], branch: s[1], idx: i };
+  function getStores() {
+    return ((cityData && cityData.stores) || []).map(function (s, i) {
+      return { id: s.id, chain: { name: s.cn }, branch: s.b || '', idx: i, stale: !!s.stale, asOf: s.as_of || null };
     });
   }
-  function getPrice(pid, store, version) {
-    if (live) {
-      var pr = cityData && cityData.byId[pid];
-      var v = pr ? pr.p[store.idx] : null;
-      return v == null ? null : v;
-    }
-    if (hash(pid + store.id + 'avail') > 0.94) return null;
-    var p = BYID[pid];
-    var branchNoise = 1 + (hash(store.id + pid) - 0.5) * 0.12;
-    var drift = 1 + (hash(pid + store.id + 'v' + version) - 0.5) * 0.07;
-    return Math.round(p.base * store.chain.f * branchNoise * drift * 10) / 10;
+  function getPrice(pid, store) {
+    var pr = cityData && cityData.byId[pid];
+    var v = pr ? pr.p[store.idx] : null;
+    return v == null ? null : v;
   }
-  function productById(pid) { return live ? (cityData && cityData.byId[pid]) : BYID[pid]; }
+  function productById(pid) { return cityData && cityData.byId[pid]; }
 
   /* ---------- State ---------- */
-  var state = { city: '', basket: [], customCities: [], version: 3, updated: new Date() };
-  function storeKey() { return live ? 'cheap-basket-live' : 'cheap-basket'; }
+  var state = { city: '', basket: [] };
+  var STORE_KEY = 'cheap-basket-live';
   function initState() {
-    state.city = live ? liveIndex.cities[0].name : 'רחובות';
-    state.basket = live ? [] : ['p1', 'p2', 'p3', 'p10', 'p17'];
+    state.city = liveIndex.cities[0].name;
+    state.basket = [];
     var saved = null;
-    try { saved = JSON.parse(localStorage.getItem(storeKey()) || 'null'); } catch (e) {}
+    try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved) return;
-    if (!live && Array.isArray(saved.customCities)) {
-      state.customCities = saved.customCities.filter(function (c) {
-        return typeof c === 'string' && c.length > 0 && c.length <= 40 && !CITIES[c];
-      }).slice(0, 50);
-    }
-    var valid = live
-      ? liveIndex.cities.some(function (c) { return c.name === saved.city; })
-      : (CITIES[saved.city] || state.customCities.indexOf(saved.city) !== -1);
-    if (valid) state.city = saved.city;
+    if (liveIndex.cities.some(function (c) { return c.name === saved.city; })) state.city = saved.city;
     if (Array.isArray(saved.basket)) {
-      state.basket = saved.basket.filter(function (id) {
-        return typeof id === 'string' && (live || BYID[id]);
-      }).slice(0, 100);
+      state.basket = saved.basket.filter(function (id) { return typeof id === 'string'; }).slice(0, 100);
     }
   }
   function persist() {
-    try {
-      localStorage.setItem(storeKey(), JSON.stringify({ city: state.city, basket: state.basket, customCities: state.customCities }));
-    } catch (e) {}
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket })); } catch (e) {}
   }
   function basketIds() { return state.basket.filter(function (id) { return !!productById(id); }); }
 
@@ -333,14 +259,13 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   var $ = function (id) { return document.getElementById(id); };
   var citySel = $('city'), q = $('q'), results = $('results'), host = $('gridHost'), summary = $('summary');
   var stamp = $('stamp'), refreshBtn = $('refresh'), warn = $('warn'), note = $('note');
-  var addCityBtn = $('addCityBtn'), cityForm = $('cityForm'), cityName = $('cityName');
 
   function fmt(n) { return '₪' + n.toFixed(2); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function minPriceFor(pid) {
     var m = null;
-    getStores(state.city).forEach(function (s) {
-      var p = getPrice(pid, s, state.version);
+    getStores().forEach(function (s) {
+      var p = getPrice(pid, s);
       if (p != null && (m == null || p < m)) m = p;
     });
     return m;
@@ -354,36 +279,85 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     return 'לפני ' + Math.round(h / 24) + ' ימים';
   }
   function updateStamp() {
-    if (live && cityData && cityData.updated_at) {
+    stamp.textContent = '';
+    if (cityData && cityData.updated_at) {
       var d = new Date(cityData.updated_at);
       if (!isNaN(d.getTime())) {
         stamp.textContent = 'נתונים מ־' + d.toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' · ' + ago(d);
-        return;
       }
     }
-    stamp.textContent = 'עודכן ' + state.updated.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
   function updateNotes() {
-    if (live) {
-      note.innerHTML = '<span>המחירים נלקחים מקבצי שקיפות המחירים שהרשתות מפרסמות לפי חוק, ונאספים אוטומטית כל כמה שעות. הכפתור "רענן מחירים" טוען את העדכון האחרון. מחירי המבצעים אינם כלולים, ומחיר בסניף עשוי להיות שונה מהמחיר בקופה.</span>';
-      var bad = [];
-      var chains = (liveIndex && liveIndex.chains) || {};
-      Object.keys(chains).forEach(function (k) { if (chains[k] && chains[k].ok === false) bad.push(chains[k].name || k); });
-      if (bad.length) {
-        warn.hidden = false;
-        warn.textContent = 'לא התקבל עדכון חדש מ: ' + bad.join(', ') + '. אם יש נתונים קודמים, הם מסומנים כישנים.';
-      } else {
-        warn.hidden = true;
-      }
+    note.innerHTML = '<span>המחירים נלקחים מקבצי שקיפות המחירים שהרשתות מפרסמות לפי חוק, ונאספים אוטומטית כל כמה שעות. הכפתור "רענן מחירים" טוען את העדכון האחרון. מחירי המבצעים אינם כלולים, ומחיר בסניף עשוי להיות שונה מהמחיר בקופה.</span>';
+    var bad = [];
+    var chains = (liveIndex && liveIndex.chains) || {};
+    Object.keys(chains).forEach(function (k) { if (chains[k] && chains[k].ok === false) bad.push(chains[k].name || k); });
+    if (bad.length) {
+      warn.hidden = false;
+      warn.textContent = 'לא התקבל עדכון חדש מ: ' + bad.join(', ') + '. אם יש נתונים קודמים, הם מסומנים כישנים.';
     } else {
-      note.innerHTML = '<b>נתוני דוגמה</b><span>המחירים והסניפים באפליקציה זו הם לצורך הדגמה בלבד. כדי לראות מחירים אמיתיים, האתר צריך לרוץ עם קבצי הנתונים שנוצרים על ידי collect.py.</span>';
       warn.hidden = true;
     }
   }
 
+  /* ---------- Failure screen: says what failed instead of showing made-up data ---------- */
+  function chainReport() {
+    var chains = (liveIndex && liveIndex.chains) || {};
+    var keys = Object.keys(chains);
+    if (!keys.length) return '';
+    var rows = keys.map(function (k) {
+      var c = chains[k] || {};
+      var st = c.ok === false ? 'נכשלה' : 'הצליחה';
+      var det = c.error ? ' (' + esc(String(c.error).slice(0, 120)) + ')' : '';
+      var cnt = (c.branches_ok != null) ? ', קבצים שהורדו: ' + c.branches_ok + ', שנכשלו: ' + (c.branches_failed || 0) : '';
+      return '<li>' + esc(c.name || k) + ': ' + st + cnt + det + '</li>';
+    }).join('');
+    return '<div class="chainlist"><b>מצב הרשתות בהרצה האחרונה</b><ul>' + rows + '</ul></div>';
+  }
+  function showFailure(err) {
+    var title, body = '', checks = [];
+    var when = liveIndex && liveIndex.generated_at ? ' ההרצה האחרונה: ' + esc(new Date(liveIndex.generated_at).toLocaleString('he-IL')) + '.' : '';
+    if (err && err.kind === 'empty') {
+      title = 'ההרצה האחרונה לא אספה מחירים לאף עיר';
+      body = 'קובץ הנתונים קיים אבל אין בו ערים.' + when;
+      checks = [
+        'ב-GitHub, בלשונית Actions, פתח את ההרצה האחרונה ובדוק את שלב "איסוף מחירים": שורות <code>FAILED</code> מראות מה נכשל.',
+        'אם הרשתות חוסמות את שרתי GitHub (הם נמצאים מחוץ לישראל), צריך להריץ את התהליך על מחשב בישראל (self-hosted runner, ראה README).',
+        'בדוק ב-<code>config.json</code> שיש ערים עם <code>"enabled": true</code>.'
+      ];
+    } else if (err && err.kind === 'format') {
+      title = 'קובץ הנתונים אינו בפורמט תקין';
+      body = 'data/index.json נטען אבל המבנה שלו לא מתאים לאתר. ודא ש-collect.py ו-index.html הם מאותה גרסה.';
+    } else if (err && err.status === 404 && !err.file) {
+      title = 'קובץ הנתונים לא נמצא באתר';
+      body = 'הכתובת data/index.json מחזירה 404. כלומר האיסוף לא פורסם יחד עם האתר.';
+      checks = [
+        'ב-GitHub, בהגדרות המאגר: <bdi dir="ltr">Settings &gt; Pages &gt; Source</bdi> חייב להיות <bdi dir="ltr"><b>GitHub Actions</b></bdi>. אם הוא <bdi dir="ltr">Deploy from a branch</bdi>, הנתונים לא יפורסמו.',
+        'בלשונית Actions ודא שההרצה האחרונה הסתיימה בהצלחה, כולל שלב deploy.',
+        'אם לא רצה הרצה: בלשונית <bdi dir="ltr">Actions</bdi> בחר "עדכון מחירים ופרסום האתר" ולחץ <bdi dir="ltr">Run workflow</bdi>.'
+      ];
+    } else if (err && err.file) {
+      title = 'קובץ נתוני העיר לא נטען';
+      body = esc(err.file) + ': ' + esc(err.message) + '. נסה שוב, ואם זה חוזר, הרץ מחדש את האיסוף.';
+    } else if (err && err.kind === 'nocity') {
+      title = 'העיר שנבחרה לא נמצאת בנתונים';
+      body = 'בחר עיר אחרת מהרשימה.';
+    } else {
+      title = 'הנתונים לא נטענו';
+      body = 'לא ניתן לטעון את data/index.json' + (err && err.message ? ' (' + esc(err.message) + ')' : '') + '. בדוק את החיבור לאינטרנט ונסה שוב.';
+    }
+    host.innerHTML = '<div class="fail"><h2>' + title + '</h2><p>' + body + '</p>' +
+      (checks.length ? '<ul>' + checks.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>' : '') +
+      chainReport() +
+      '<button class="btn" type="button" id="retry">נסה שוב</button></div>';
+    summary.hidden = true; warn.hidden = true; stamp.textContent = ''; note.innerHTML = '';
+    q.disabled = true; q.placeholder = 'אין נתונים';
+    if (!liveIndex || !liveIndex.cities || !liveIndex.cities.length) { citySel.innerHTML = ''; citySel.disabled = true; }
+  }
+
   /* ---------- Render ---------- */
   function render() {
-    var stores = getStores(state.city);
+    var stores = getStores();
     var ids = basketIds();
     updateStamp();
     updateNotes();
@@ -403,7 +377,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     var stats = stores.map(function (s) {
       var sum = 0, missing = 0;
       ids.forEach(function (pid) {
-        var pr = getPrice(pid, s, state.version);
+        var pr = getPrice(pid, s);
         if (pr == null) missing++; else sum += pr;
       });
       return { s: s, sum: sum, missing: missing };
@@ -420,8 +394,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 
     var body = '';
     ids.forEach(function (pid) {
-      var prices = stores.map(function (s) { return getPrice(pid, s, state.version); });
-      var prev = stores.map(function (s) { return live ? null : getPrice(pid, s, state.version - 1); });
+      var prices = stores.map(function (s) { return getPrice(pid, s); });
       var min = null;
       prices.forEach(function (p) { if (p != null && (min == null || p < min)) min = p; });
       var p = productById(pid);
@@ -431,12 +404,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
       prices.forEach(function (pr, i) {
         if (pr == null) { body += '<td class="na">אין במלאי</td>'; totals[i].missing++; return; }
         totals[i].sum += pr;
-        var cls = 'price' + (pr === min ? ' best' : '');
-        var d = '';
-        if (prev[i] != null && Math.abs(pr - prev[i]) >= 0.05) {
-          d = pr > prev[i] ? '<span class="delta up" title="עלה מאז העדכון הקודם">▲</span>' : '<span class="delta down" title="ירד מאז העדכון הקודם">▼</span>';
-        }
-        body += '<td class="' + cls + '">' + fmt(pr) + d + '</td>';
+        body += '<td class="price' + (pr === min ? ' best' : '') + '">' + fmt(pr) + '</td>';
       });
       body += '</tr>';
     });
@@ -468,11 +436,6 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
       summary.hidden = false;
       summary.innerHTML = '<span class="txt">אף סניף לא מחזיק את כל המוצרים שבסל. הסר מוצר חסר כדי לראות סל שלם.</span>';
     }
-  }
-
-  function showError(msg) {
-    host.innerHTML = '<div class="empty"><strong>' + esc(msg) + '</strong>נסה לרענן את הדף בעוד רגע.</div>';
-    summary.hidden = true;
   }
 
   /* ---------- Search dropdown ---------- */
@@ -528,43 +491,21 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 
   /* ---------- Cities ---------- */
   function fillCities() {
-    var names = live
-      ? liveIndex.cities.map(function (c) { return c.name; })
-      : Object.keys(CITIES).concat(state.customCities);
     citySel.innerHTML = '';
-    names.forEach(function (c) {
-      var o = document.createElement('option'); o.value = c; o.textContent = c; citySel.appendChild(o);
+    liveIndex.cities.forEach(function (c) {
+      var o = document.createElement('option'); o.value = c.name; o.textContent = c.name; citySel.appendChild(o);
     });
     citySel.value = state.city;
   }
-  function toggleCityForm(open) {
-    cityForm.hidden = !open;
-    addCityBtn.setAttribute('aria-expanded', String(open));
-    if (open) cityName.focus();
-  }
-  addCityBtn.addEventListener('click', function () { toggleCityForm(cityForm.hidden); });
-  cityName.addEventListener('keydown', function (e) { if (e.key === 'Escape') { toggleCityForm(false); addCityBtn.focus(); } });
-  cityForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (live) return;
-    var name = cityName.value.replace(/\s+/g, ' ').trim();
-    if (!name) { cityName.focus(); return; }
-    var all = Object.keys(CITIES).concat(state.customCities);
-    if (all.indexOf(name) === -1) state.customCities.push(name);
-    state.city = name;
-    cityName.value = '';
-    toggleCityForm(false);
-    fillCities(); persist(); closeList(); render();
-  });
   citySel.addEventListener('change', function () {
     state.city = citySel.value; persist(); closeList();
-    if (!live) { render(); return; }
     host.innerHTML = '<div class="empty">טוען מחירים…</div>';
-    loadCity(state.city).then(render).catch(function () { showError('הטעינה נכשלה'); });
+    loadCity(state.city).then(render).catch(showFailure);
   });
 
   /* ---------- Other events ---------- */
   host.addEventListener('click', function (e) {
+    if (e.target.closest('#retry')) { start(); return; }
     var b = e.target.closest('[data-rm]');
     if (!b) return;
     var id = b.getAttribute('data-rm');
@@ -575,43 +516,23 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     if (refreshBtn.disabled) return;
     refreshBtn.disabled = true;
     refreshBtn.classList.add('spin');
-    function done() { refreshBtn.disabled = false; refreshBtn.classList.remove('spin'); }
-    if (live) {
-      fetchJSON('data/index.json').then(function (idx) {
-        liveIndex = idx;
-        return loadCity(state.city);
-      }).then(function () { done(); render(); })
-        .catch(function () { done(); stamp.textContent = 'הרענון נכשל, נסה שוב'; });
-      return;
-    }
-    setTimeout(function () {
-      state.version += 1;
-      state.updated = new Date();
-      done();
-      render();
-    }, 700);
+    start().then(function () {
+      refreshBtn.disabled = false; refreshBtn.classList.remove('spin');
+    });
   });
 
   /* ---------- Start ---------- */
-  loadIndex().then(function (ok) {
-    live = ok;
-    initState();
-    addCityBtn.hidden = live;
-    fillCities();
-    if (!live) {
-      catalog = PRODUCTS.map(function (p) { return { id: p[0], name: p[1], size: '' }; });
-      render();
-      return;
-    }
-    return loadCity(state.city).then(render).catch(function () {
-      live = false;
+  function start() {
+    host.innerHTML = '<div class="empty">טוען מחירים…</div>';
+    return loadIndex().then(function () {
       initState();
-      addCityBtn.hidden = false;
+      q.disabled = false; q.placeholder = 'הקלד מילה, למשל: חלב, אורז, שמן';
+      citySel.disabled = false;
       fillCities();
-      catalog = PRODUCTS.map(function (p) { return { id: p[0], name: p[1], size: '' }; });
-      render();
-    });
-  });
+      return loadCity(state.city).then(render);
+    }).catch(showFailure);
+  }
+  start();
 })();
 </script>
 </body>
