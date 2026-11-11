@@ -529,11 +529,18 @@ td.alt { color: var(--muted); }
   function closeList() { results.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; sel = []; }
 
   /* every word must appear anywhere in the name, in any order; words that start a word rank first */
+  function nf(s) { return s.replace(/ך/g, 'כ').replace(/ם/g, 'מ').replace(/ן/g, 'נ').replace(/ף/g, 'פ').replace(/ץ/g, 'צ'); }
   function search(words) {
     var hits = [];
+    /* a typed plural or feminine ending is dropped, so "מלפפונים" also finds "מלפפון" and "עגבניה" finds "עגבניות" */
+    words = words.map(nf).map(function (w) {
+      if (w.length > 4 && (w.slice(-2) === 'ימ' || w.slice(-2) === 'ות')) return w.slice(0, -2);
+      if (w.length >= 4 && w.slice(-1) === 'ה') return w.slice(0, -1);
+      return w;
+    });
     catalog.forEach(function (p) {
       if (state.basket.indexOf(p.id) !== -1) return;
-      var name = p.name, notStart = 0, first = 0;
+      var name = p.k || (p.k = nf(p.name)), notStart = 0, first = 0;
       for (var i = 0; i < words.length; i++) {
         var at = name.indexOf(words[i]);
         if (at < 0) return;

@@ -85,15 +85,34 @@ def has_term(text: str, terms) -> bool:
     return any(f" {cnorm(t)} " in hay for t in terms)
 
 
-_LOOSE_STOP = {"קג", "גרם", "גר", "יח", "יחידה", "יחידות", "ליטר", "מל", "לק", "טרי", "טריה", "טרייה",
-               "ארוז", "ארוזה", "במשקל", "משקל", "קילו"}
+_LOOSE_STOP = {"קג", "קילוגרם", "גרם", "גר", "יח", "יחידה", "יחידות", "ליטר", "מל", "לק", "טרי", "טריה", "טרייה",
+               "טריים", "טריות", "ארוז", "ארוזה", "ארוזים", "ארוזות", "במשקל", "משקל", "קילו",
+               "ישראלי", "ישראלית", "מובחר", "מובחרים", "מובחרות", "איכותי"}
+
+_FINALS = str.maketrans("ךםןףץ", "כמנפצ")
+
+
+def _stem(tok: str) -> str:
+    """One Hebrew word without final letters, plural endings and a trailing ה, so that
+    "מלפפון" and "מלפפונים", or "עגבניה" and "עגבניות", become the same key."""
+    t = tok.translate(_FINALS)
+    if len(t) > 4 and (t.endswith("ימ") or t.endswith("ות")):
+        t = t[:-2]
+    elif len(t) >= 4 and t.endswith("ה"):
+        t = t[:-1]
+    return t
+
+
+_STOP_STEMS = {_stem(w) for w in _LOOSE_STOP}
 
 
 def norm_name(name: str) -> str:
-    """Matching key for products without a barcode: name without digits, units and filler words."""
+    """Matching key for products without a barcode: name without digits, units, filler words,
+    final letters and plural endings."""
     s = re.sub(r'["\'׳״]', "", name)
     s = re.sub(r"[\d\-־()*/,.%+:]+", " ", s)
-    return " ".join(t for t in s.split() if t not in _LOOSE_STOP)
+    toks = [_stem(t) for t in s.split()]
+    return " ".join(t for t in toks if t and t not in _STOP_STEMS)
 
 
 def pick_stores(stores, terms, limit):
