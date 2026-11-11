@@ -166,10 +166,10 @@ def main() -> int:
     cand = 10**6 if cand_cfg <= 0 else max(per_chain, cand_cfg)  # 0 = every branch in the city
     fill_gaps = bool(cfg.get("fill_gaps", True))
     min_chains = int(cfg.get("min_chains", 1))
-    max_products = int(cfg.get("max_products", 8000))
+    max_products = int(cfg.get("max_products", 0)) or 10**9  # 0 = no limit
     include_loose = bool(cfg.get("include_unbarcoded", True))
     loose_min_chains = int(cfg.get("loose_min_chains", 2))
-    max_loose = int(cfg.get("max_loose", 1500))
+    max_loose = int(cfg.get("max_loose", 0)) or 10**9  # 0 = no limit
     # product names or item codes to trace in the log: what was found, and whether it made it into the site
     watch = [str(w).strip() for w in cfg.get("watch", []) if str(w).strip()]
     watch_f = [(w, w.translate(_FINALS)) for w in watch]
@@ -376,7 +376,7 @@ def main() -> int:
                 seen: dict[str, list] = {}
                 for chain, code, nm, key in hits:
                     seen.setdefault(key, [nm, code, set()])[2].add(chain)
-                for key, (nm, code, chs) in list(seen.items())[:8]:
+                for key, (nm, code, chs) in list(seen.items())[:40]:
                     if key in ranked_set:
                         st = "INCLUDED in the site data"
                     elif key.startswith("n:") and len(carriers[key]) < need_loose:

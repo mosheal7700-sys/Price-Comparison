@@ -13,10 +13,10 @@
  "candidate_stores": 6,
  "fill_gaps": true,
  "min_chains": 1,
- "max_products": 25000,
+ "max_products": 0,
  "include_unbarcoded": true,
  "loose_min_chains": 1,
- "max_loose": 10000,
+ "max_loose": 0,
  "cities": [
   {
    "key": "jerusalem",
