@@ -288,6 +288,7 @@ def main() -> int:
         carriers: dict[str, set] = {}
         weighted: set[str] = set()
         watch_hits: dict[str, list] = {}
+        prices_seen: dict[str, list] = {}
 
         filled: set[str] = set()
         for e in entries:
@@ -327,6 +328,7 @@ def main() -> int:
                             for w, wf in watch_f:
                                 if wf in nm_f or w in code:
                                     watch_hits.setdefault(w, []).append((e["chain"], code, it.name.strip(), key))
+                                    prices_seen.setdefault(key, []).append(f'{e["chain"]}={float(it.price):g}')
                         price = float(round(it.price, 2))
                         if not g and key in prices:
                             price = min(price, prices[key])  # several variants of one name: keep the lowest
@@ -383,7 +385,7 @@ def main() -> int:
                         st = f"NOT included: found in {len(carriers[key])} chain(s), loose_min_chains={need_loose}"
                     else:
                         st = "NOT included: cut by the max_products / max_loose limit"
-                    log(f'[watch] {city["name"]}: "{w}" -> {nm} (code {code}) in {",".join(sorted(chs))}: {st}')
+                    log(f'[watch] {city["name"]}: "{w}" -> {nm} (code {code}, key {key}, price {"/".join(sorted({str(x) for x in prices_seen.get(key, [])})[:4])}) in {",".join(sorted(chs))}: {st}')
         # products that only stale columns know about are dropped on purpose
 
         products = []
