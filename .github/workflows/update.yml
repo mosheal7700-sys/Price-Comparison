@@ -27,6 +27,7 @@ jobs:
     # כברירת מחדל רץ על שרתי GitHub. אם הרשתות חוסמות אותם, אפשר להגדיר
     # משתנה מאגר בשם RUNNER_LABEL ולהריץ על מחשב בישראל (self-hosted runner).
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 340
     steps:
       - uses: actions/checkout@v4
 
