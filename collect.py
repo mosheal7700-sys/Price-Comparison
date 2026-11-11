@@ -406,6 +406,9 @@ def main() -> int:
         })
         log(f"[city] {city['name']}: {len(columns)} branches, {len(products)} products"
             + (f" (cut by limits: {cut_b} barcoded, {cut_l} unbarcoded)" if cut_b or cut_l else ""))
+        for sd_, pr_, fresh_ in columns:
+            log(f"[branch] {city['name']}: {sd_['cn']} -> {sd_['b']} (store {sd_['id'].split(':', 1)[1]}), "
+                f"{sum(1 for v in pr_.values() if v is not None)} items" + ("" if fresh_ else ", stale"))
         files.clear()
         prev_cache.pop(city['key'], None)
 
