@@ -9,12 +9,14 @@
     "hatzi-hinam",
     "tiv-taam"
   ],
-  "stores_per_chain": 2,
+  "stores_per_chain": 1,
+  "candidate_stores": 6,
+  "fill_gaps": true,
   "min_chains": 1,
-  "max_products": 8000,
+  "max_products": 25000,
   "include_unbarcoded": true,
   "loose_min_chains": 1,
-  "max_loose": 3000,
+  "max_loose": 10000,
   "cities": [
     {
       "key": "jerusalem",
@@ -744,5 +746,10 @@
       ],
       "enabled": false
     }
+  ],
+  "watch": [
+    "פילה סלמון",
+    "7290000653280",
+    "46405"
   ]
 }

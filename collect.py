@@ -106,11 +106,15 @@ def _stem(tok: str) -> str:
 _STOP_STEMS = {_stem(w) for w in _LOOSE_STOP}
 
 
-def norm_name(name: str) -> str:
-    """Matching key for products without a barcode: name without digits, units, filler words,
-    final letters and plural endings."""
+def norm_name(name: str, keep_numbers: bool = False) -> str:
+    """Matching key for products without a barcode: name without units, filler words,
+    final letters and plural endings. Numbers (pack sizes) are dropped for items sold by weight
+    and kept for fixed-size packs, so an 800 g pack is never merged with a 400 g pack."""
     s = re.sub(r'["\'׳״]', "", name)
-    s = re.sub(r"[\d\-־()*/,.%+:]+", " ", s)
+    if keep_numbers:
+        s = re.sub(r"[\-־()*/,+:]+", " ", s)
+    else:
+        s = re.sub(r"[\d\-־()*/,.%+:]+", " ", s)
     toks = [_stem(t) for t in s.split()]
     return " ".join(t for t in toks if t and t not in _STOP_STEMS)
 
@@ -157,11 +161,18 @@ def main() -> int:
     cfg = json.loads(Path(args.config).read_text(encoding="utf-8"))
     chains_cfg = cfg["chains"]
     per_chain = int(cfg.get("stores_per_chain", 2))
+    # branches downloaded per chain and city; the fullest ones become the columns, the rest only fill gaps
+    cand_cfg = int(cfg.get("candidate_stores", 6))
+    cand = 10**6 if cand_cfg <= 0 else max(per_chain, cand_cfg)  # 0 = every branch in the city
+    fill_gaps = bool(cfg.get("fill_gaps", True))
     min_chains = int(cfg.get("min_chains", 1))
     max_products = int(cfg.get("max_products", 8000))
     include_loose = bool(cfg.get("include_unbarcoded", True))
     loose_min_chains = int(cfg.get("loose_min_chains", 2))
     max_loose = int(cfg.get("max_loose", 1500))
+    # product names or item codes to trace in the log: what was found, and whether it made it into the site
+    watch = [str(w).strip() for w in cfg.get("watch", []) if str(w).strip()]
+    watch_f = [(w, w.translate(_FINALS)) for w in watch]
     cities_cfg = [c for c in cfg["cities"] if c.get("enabled", True)]
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -203,7 +214,7 @@ def main() -> int:
         entries = []
         for slug in chains_cfg:
             if slug in store_lists:
-                for s in pick_stores(store_lists[slug], city["match"], per_chain):
+                for s in pick_stores(store_lists[slug], city["match"], cand):
                     entries.append({"chain": slug, "store_id": s.store_id, "label": branch_label(s)})
                     jobs[(slug, s.store_id)] = None
             else:
@@ -244,6 +255,21 @@ def main() -> int:
                 files[job] = pf
         log(f"[{n}/{len(plans)}] {city['name']}: {len(files)}/{len(city_jobs)} files "
             f"({int(time.time() - started)}s elapsed)")
+        # keep, per chain, the branches with the most items (a full-range branch carries frozen, fish, deli...);
+        # the other downloaded branches of the chain only fill items the kept branches lack
+        by_chain: dict[str, list] = {}
+        for e in entries:
+            by_chain.setdefault(e["chain"], []).append(e)
+        entries, extras = [], {}
+        for ch, es in by_chain.items():
+            got = [e for e in es if (e["chain"], e["store_id"]) in files]
+            if got:
+                got.sort(key=lambda e: -len(files[(e["chain"], e["store_id"])].items))
+                entries += got[:per_chain]
+                if fill_gaps:
+                    extras[ch] = [files[(e["chain"], e["store_id"])] for e in got[per_chain:]]
+            else:
+                entries += es[:per_chain]
         prev = get_prev(city["key"]) if any((e["chain"], e["store_id"]) not in files for e in entries) else None
         prev_idx = {}
         if prev:
@@ -254,39 +280,58 @@ def main() -> int:
         sizes: dict[str, Counter] = {}
         carriers: dict[str, set] = {}
         weighted: set[str] = set()
+        watch_hits: dict[str, list] = {}
 
+        filled: set[str] = set()
         for e in entries:
             sid = f'{e["chain"]}:{e["store_id"]}'
             sd = {"id": sid, "chain": e["chain"], "cn": status[e["chain"]]["name"], "b": e["label"]}
             pf = files.get((e["chain"], e["store_id"]))
             prices: dict[str, float] = {}
             if pf is not None:
-                for it in pf.items:
-                    if it.price is None or it.price <= 0 or not it.name or not it.name.strip():
-                        continue
-                    g = it.gtin
-                    if g:
-                        key = g
-                    elif include_loose:
-                        # no barcode (produce, fish, bakery...): match across chains by normalized name
-                        nn = norm_name(it.name)
-                        if len(nn) < 3:
+                srcs = [(pf, False)]
+                if e["chain"] not in filled:
+                    filled.add(e["chain"])
+                    srcs += [(x, True) for x in extras.get(e["chain"], [])]
+                base_keys = None
+                for src, is_extra in srcs:
+                    if is_extra:
+                        base_keys = set(prices)  # items from larger branches (processed first) win
+                    for it in src.items:
+                        if it.price is None or it.price <= 0 or not it.name or not it.name.strip():
                             continue
-                        key = "n:" + nn
-                    else:
-                        continue
-                    price = float(round(it.price, 2))
-                    if not g and key in prices:
-                        price = min(price, prices[key])  # several variants of one name: keep the lowest
-                    prices[key] = price
-                    names.setdefault(key, Counter())[it.name.strip()] += 1
-                    if not g and it.is_weighted:
-                        weighted.add(key)
-                    if g:
-                        sz = size_label(it)
-                        if sz:
-                            sizes.setdefault(key, Counter())[sz] += 1
-                    carriers.setdefault(key, set()).add(e["chain"])
+                        g = it.gtin
+                        um = (it.unit_of_measure or "").replace('"', "").replace("'", "").replace("׳", "").replace("״", "")
+                        by_weight = bool(it.is_weighted) or um.startswith("קג") or um.startswith("קילו")
+                        if g:
+                            key = g
+                        elif include_loose:
+                            # no barcode (produce, fish, bakery...): match across chains by normalized name
+                            nn = norm_name(it.name, keep_numbers=not by_weight)
+                            if len(nn) < 3:
+                                continue
+                            key = "n:" + nn
+                        else:
+                            continue
+                        if is_extra and key in base_keys:
+                            continue  # the kept branch has it: its price wins
+                        if watch_f:
+                            nm_f, code = it.name.translate(_FINALS), str(it.item_code)
+                            for w, wf in watch_f:
+                                if wf in nm_f or w in code:
+                                    watch_hits.setdefault(w, []).append((e["chain"], code, it.name.strip(), key))
+                        price = float(round(it.price, 2))
+                        if not g and key in prices:
+                            price = min(price, prices[key])  # several variants of one name: keep the lowest
+                        prices[key] = price
+                        names.setdefault(key, Counter())[it.name.strip()] += 1
+                        if by_weight:
+                            weighted.add(key)
+                        if g:
+                            sz = size_label(it)
+                            if sz:
+                                sizes.setdefault(key, Counter())[sz] += 1
+                        carriers.setdefault(key, set()).add(e["chain"])
                 columns.append((sd, prices, True))
             elif prev and sid in prev_idx:
                 col = prev_idx[sid]
@@ -312,6 +357,26 @@ def main() -> int:
         barcoded = [g for g, ch in carriers.items() if not g.startswith("n:") and len(ch) >= need]
         loose = [g for g, ch in carriers.items() if g.startswith("n:") and len(ch) >= need_loose]
         ranked = rank(barcoded)[:max_products] + rank(loose)[:max_loose]
+        cut_b, cut_l = max(0, len(barcoded) - max_products), max(0, len(loose) - max_loose)
+        if watch_f:
+            ranked_set = set(ranked)
+            for w, _ in watch_f:
+                hits = watch_hits.get(w)
+                if not hits:
+                    log(f'[watch] {city["name"]}: "{w}" was not found in any of the {len(files)} downloaded price files '
+                        f'(the sampled branches may not carry it, try a larger stores_per_chain)')
+                    continue
+                seen: dict[str, list] = {}
+                for chain, code, nm, key in hits:
+                    seen.setdefault(key, [nm, code, set()])[2].add(chain)
+                for key, (nm, code, chs) in list(seen.items())[:8]:
+                    if key in ranked_set:
+                        st = "INCLUDED in the site data"
+                    elif key.startswith("n:") and len(carriers[key]) < need_loose:
+                        st = f"NOT included: found in {len(carriers[key])} chain(s), loose_min_chains={need_loose}"
+                    else:
+                        st = "NOT included: cut by the max_products / max_loose limit"
+                    log(f'[watch] {city["name"]}: "{w}" -> {nm} (code {code}) in {",".join(sorted(chs))}: {st}')
         # products that only stale columns know about are dropped on purpose
 
         products = []
@@ -339,7 +404,8 @@ def main() -> int:
             "key": city["key"], "name": city["name"], "file": fname,
             "stores": len(columns), "products": len(products),
         })
-        log(f"[city] {city['name']}: {len(columns)} branches, {len(products)} products")
+        log(f"[city] {city['name']}: {len(columns)} branches, {len(products)} products"
+            + (f" (cut by limits: {cut_b} barcoded, {cut_l} unbarcoded)" if cut_b or cut_l else ""))
         files.clear()
         prev_cache.pop(city['key'], None)
 
@@ -352,6 +418,12 @@ def main() -> int:
         status[slug]["branches_ok"] = c["ok"]
         status[slug]["branches_failed"] = c["failed"]
 
+    log("[summary] chains:")
+    for slug in chains_cfg:
+        st = status[slug]
+        log(f"  {slug}: " + ("ok" if st["ok"] else "FAILED") +
+            f" (files ok {st.get('branches_ok', 0)}, failed {st.get('branches_failed', 0)})" +
+            (f" - {st['error']}" if st.get("error") else ""))
     index = {"generated_at": now, "cities": index_cities, "chains": status}
     (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     log(f"done: {len(index_cities)} cities written to {out}")
