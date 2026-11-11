@@ -147,6 +147,20 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 .fail code { direction: ltr; unicode-bidi: embed; background: var(--bg); border-radius: 4px; padding: 0 4px; font-size: 13px; }
 .fail .chainlist { font-size: 13px; color: var(--muted); }
 .fail .btn { align-self: flex-start; }
+.results li.bar { position: sticky; top: 0; z-index: 1; justify-content: center; background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.results li.bar:hover { background: var(--accent); color: var(--accent-fg); }
+.results li { justify-content: flex-start; }
+.results li .nm { flex: 1; }
+.pick { flex: none; width: 18px; height: 18px; accent-color: var(--accent); margin: 0; cursor: pointer; }
+.pickhint { font-size: 12px; color: var(--muted); }
+tr.grp td.prod { box-shadow: inset -3px 0 0 var(--accent); }
+td.counted { font-weight: 700; box-shadow: inset 0 0 0 2px var(--accent); }
+td.alt { color: var(--muted); }
+.dx { display: block; font-size: 11px; font-weight: 500; color: var(--up); }
+.acts { display: inline-flex; gap: 6px; align-items: center; flex: none; }
+.keep { border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; min-height: 28px; }
+.keep:hover { background: var(--best-bg); }
+.grphint { font-size: 12px; color: var(--muted); margin: 0; }
 </style>
 </head>
 <body>
@@ -237,11 +251,22 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   function productById(pid) { return cityData && cityData.byId[pid]; }
 
   /* ---------- State ---------- */
-  var state = { city: '', basket: [] };
+  /* groups: product id -> group id. Products in one group are alternatives to each other,
+     and only the cheapest of them in each store counts towards that store's basket total. */
+  var state = { city: '', basket: [], groups: {} };
   var STORE_KEY = 'cheap-basket-live';
+  function cleanGroups() {
+    var n = {};
+    Object.keys(state.groups).forEach(function (id) {
+      if (state.basket.indexOf(id) === -1) { delete state.groups[id]; return; }
+      var g = state.groups[id]; n[g] = (n[g] || 0) + 1;
+    });
+    Object.keys(state.groups).forEach(function (id) { if (n[state.groups[id]] < 2) delete state.groups[id]; });
+  }
   function initState() {
     state.city = liveIndex.cities[0].name;
     state.basket = [];
+    state.groups = {};
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved) return;
@@ -249,9 +274,16 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     if (Array.isArray(saved.basket)) {
       state.basket = saved.basket.filter(function (id) { return typeof id === 'string'; }).slice(0, 100);
     }
+    if (saved.groups && typeof saved.groups === 'object') {
+      Object.keys(saved.groups).forEach(function (id) {
+        if (typeof saved.groups[id] === 'string') state.groups[id] = saved.groups[id];
+      });
+    }
+    cleanGroups();
   }
   function persist() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket })); } catch (e) {}
+    cleanGroups();
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups })); } catch (e) {}
   }
   function basketIds() { return state.basket.filter(function (id) { return !!productById(id); }); }
 
@@ -373,19 +405,47 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
       return;
     }
 
-    /* sort stores by basket total, cheapest first; baskets with missing items go last */
-    var stats = stores.map(function (s) {
-      var sum = 0, missing = 0;
-      ids.forEach(function (pid) {
-        var pr = getPrice(pid, s);
-        if (pr == null) missing++; else sum += pr;
+    /* a group needs two or more products that exist in this city */
+    var gsize = {};
+    ids.forEach(function (id) { var g = state.groups[id]; if (g) gsize[g] = (gsize[g] || 0) + 1; });
+    function groupOf(id) { var g = state.groups[id]; return g && gsize[g] > 1 ? g : null; }
+
+    /* units: one product, or a group of alternatives (the cheapest one in each store counts) */
+    var units = [], unitIndex = {}, rows = [];
+    ids.forEach(function (id) {
+      var g = groupOf(id);
+      if (g) {
+        if (unitIndex[g] === undefined) { unitIndex[g] = units.length; units.push({ ids: [], group: g }); }
+        units[unitIndex[g]].ids.push(id);
+      } else {
+        units.push({ ids: [id], group: null });
+      }
+    });
+    units.forEach(function (u) { u.ids.forEach(function (id) { rows.push(id); }); });
+
+    function unitPrice(u, s) {
+      var best = null, who = null;
+      u.ids.forEach(function (id) {
+        var pr = getPrice(id, s);
+        if (pr != null && (best === null || pr < best)) { best = pr; who = id; }
       });
-      return { s: s, sum: sum, missing: missing };
+      return { price: best, id: who };
+    }
+
+    /* basket total per store, cheapest first; baskets with missing items go last */
+    var stats = stores.map(function (s) {
+      var sum = 0, missing = 0, counted = {};
+      units.forEach(function (u) {
+        var up = unitPrice(u, s);
+        if (up.price == null) missing++; else sum += up.price;
+        if (u.group) counted[u.group] = up;
+      });
+      return { s: s, sum: sum, missing: missing, counted: counted };
     });
     stats.sort(function (a, b) { return (a.missing - b.missing) || (a.sum - b.sum); });
     stores = stats.map(function (x) { return x.s; });
+    var totals = stats;
 
-    var totals = stores.map(function () { return { sum: 0, missing: 0 }; });
     var head = '<th class="prod" scope="col">מוצר</th>';
     stores.forEach(function (s) {
       head += '<th scope="col"><div class="chain">' + esc(s.chain.name) + '</div><div class="branch">' + esc(s.branch) + '</div>' +
@@ -393,18 +453,32 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
     });
 
     var body = '';
-    ids.forEach(function (pid) {
+    rows.forEach(function (pid) {
+      var g = groupOf(pid);
       var prices = stores.map(function (s) { return getPrice(pid, s); });
       var min = null;
-      prices.forEach(function (p) { if (p != null && (min == null || p < min)) min = p; });
+      prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
       var p = productById(pid);
-      body += '<tr><td class="prod"><div class="pname"><span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
+      body += '<tr' + (g ? ' class="grp"' : '') + '><td class="prod"><div class="pname"><span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
+        '<span class="acts">' +
+        (g ? '<button class="keep" type="button" data-keep="' + esc(pid) + '" title="להשאיר רק את המוצר הזה ולהסיר את שאר המוצרים בהשוואה">השאר</button>' : '') +
         '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div></td>';
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></span></div></td>';
       prices.forEach(function (pr, i) {
-        if (pr == null) { body += '<td class="na">אין במלאי</td>'; totals[i].missing++; return; }
-        totals[i].sum += pr;
-        body += '<td class="price' + (pr === min ? ' best' : '') + '">' + fmt(pr) + '</td>';
+        if (pr == null) { body += '<td class="na">אין במלאי</td>'; return; }
+        var cls = 'price', extra = '';
+        if (g) {
+          var c = totals[i].counted[g];
+          if (c && c.id === pid) cls += ' counted';
+          else {
+            cls += ' alt';
+            if (c && pr - c.price >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמוצר הזול בהשוואה, באותה חנות">+' + fmt(pr - c.price) + '</span>';
+          }
+        } else {
+          if (pr === min) cls += ' best';
+          else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt(pr - min) + '</span>';
+        }
+        body += '<td class="' + cls + '">' + fmt(pr) + extra + '</td>';
       });
       body += '</tr>';
     });
@@ -424,14 +498,25 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
         (t.missing ? '<span class="miss">חסרים ' + t.missing + ' מוצרים</span>' : '') + '</td>';
     });
 
-    host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>';
+    var hasGroups = units.some(function (u) { return u.group; });
+    host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
+      (hasGroups ? '<p class="grphint" style="padding:8px 12px">מוצרים בהשוואה (פס ירוק): בכל חנות נספר בסכום רק המוצר המסומן במסגרת, הזול ביותר שם. המספר באדום הוא התוספת אם תבחר בו. "השאר" משאיר מוצר אחד.</p>' : '');
+
+    /* buying every item where it is cheapest, in as many stores as needed */
+    var split = 0, splitOk = true;
+    units.forEach(function (u) {
+      var m = null;
+      stores.forEach(function (s) { var up = unitPrice(u, s); if (up.price != null && (m == null || up.price < m)) m = up.price; });
+      if (m == null) splitOk = false; else split += m;
+    });
 
     if (bestIdx >= 0) {
-      var bs = stores[bestIdx], save = worst - totals[bestIdx].sum;
+      var bs = stores[bestIdx], save = worst - totals[bestIdx].sum, splitSave = totals[bestIdx].sum - split;
       summary.hidden = false;
       summary.innerHTML = '<span class="big">' + fmt(totals[bestIdx].sum) + '</span>' +
         '<span class="txt"><b>' + esc(bs.chain.name) + ' · ' + esc(bs.branch) + '</b> הוא הסל הזול ביותר ב' + esc(state.city) + '</span>' +
-        (save > 0.05 ? '<span class="save">חיסכון של ' + fmt(save) + ' לעומת הסניף היקר ביותר</span>' : '');
+        (save > 0.05 ? '<span class="save">חיסכון של ' + fmt(save) + ' לעומת הסניף היקר ביותר</span>' : '') +
+        (splitOk && splitSave >= 0.5 ? '<span class="save">קנייה מפוצלת, הזול בכל שורה בכמה חנויות: ' + fmt(split) + ' (עוד ' + fmt(splitSave) + ' חיסכון)</span>' : '');
     } else {
       summary.hidden = false;
       summary.innerHTML = '<span class="txt">אף סניף לא מחזיק את כל המוצרים שבסל. הסר מוצר חסר כדי לראות סל שלם.</span>';
@@ -439,53 +524,95 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   }
 
   /* ---------- Search dropdown ---------- */
-  var active = -1, shown = [];
-  function closeList() { results.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; }
-  function openList() {
+  var LIMIT = 100;
+  var active = -1, shown = [], sel = [];
+  function closeList() { results.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; sel = []; }
+
+  /* every word must appear anywhere in the name, in any order; words that start a word rank first */
+  function search(words) {
+    var hits = [];
+    catalog.forEach(function (p) {
+      if (state.basket.indexOf(p.id) !== -1) return;
+      var name = p.name, notStart = 0, first = 0;
+      for (var i = 0; i < words.length; i++) {
+        var at = name.indexOf(words[i]);
+        if (at < 0) return;
+        if (!(at === 0 || name.charAt(at - 1) === ' ')) notStart++;
+        if (i === 0) first = at;
+      }
+      hits.push({ p: p, a: notStart, b: first, c: name.length });
+    });
+    hits.sort(function (x, y) { return (x.a - y.a) || (x.b - y.b) || (x.c - y.c); });
+    return hits.map(function (h) { return h.p; });
+  }
+  function openList(keepScroll) {
     var term = q.value.trim();
     if (!term) { closeList(); return; }
     var words = term.split(/\s+/).filter(Boolean);
-    shown = catalog.filter(function (p) {
-      if (state.basket.indexOf(p.id) !== -1) return false;
-      return words.every(function (w) { return p.name.indexOf(w) !== -1; });
-    });
-    shown.sort(function (a, b) { return a.name.indexOf(words[0]) - b.name.indexOf(words[0]); });
-    shown = shown.slice(0, 8);
+    var all = search(words);
+    shown = all.slice(0, LIMIT);
+    var top = keepScroll ? results.scrollTop : 0;
     var html = '';
+    if (sel.length) html += '<li class="bar" role="option" data-addsel="1">הוסף ' + sel.length + (sel.length === 1 ? ' מוצר' : ' מוצרים להשוואה') + '</li>';
     if (!shown.length) {
-      html = '<li class="none" role="option" aria-disabled="true">לא נמצאו מוצרים תואמים</li>';
+      html += '<li class="none" role="option" aria-disabled="true">לא נמצאו מוצרים תואמים</li>';
     } else {
       shown.forEach(function (p, i) {
         var m = minPriceFor(p.id);
         var sz = p.w ? '<span class="size">לפי משקל</span>'
           : (p.size && p.name.indexOf(p.size) === -1 ? '<span class="size">' + esc(p.size) + '</span>' : '');
-        html += '<li role="option" data-add="' + esc(p.id) + '" aria-selected="' + (i === active) + '"><span class="nm">' + esc(p.name) + sz + '</span>' +
+        html += '<li role="option" data-add="' + esc(p.id) + '" aria-selected="' + (i === active) + '">' +
+          '<input type="checkbox" class="pick" tabindex="-1" aria-label="סמן להשוואה"' + (sel.indexOf(p.id) !== -1 ? ' checked' : '') + '>' +
+          '<span class="nm">' + esc(p.name) + sz + '</span>' +
           (m != null ? '<span class="from">מ־' + fmt(m) + '</span>' : '') + '</li>';
       });
+      if (all.length > shown.length) {
+        html += '<li class="none" role="option" aria-disabled="true">מוצגים ' + shown.length + ' מתוך ' + all.length + '. הוסף מילה כדי לצמצם.</li>';
+      } else if (shown.length > 1 && !sel.length) {
+        html += '<li class="none pickhint" role="option" aria-disabled="true">אפשר לסמן כמה מוצרים ולהשוות ביניהם</li>';
+      }
     }
     results.innerHTML = html;
     results.hidden = false;
+    results.scrollTop = top;
     q.setAttribute('aria-expanded', 'true');
   }
-  function addProduct(pid) {
-    if (state.basket.indexOf(pid) === -1) state.basket.push(pid);
+  function addProducts(list) {
+    list = list.filter(function (id, i) { return state.basket.indexOf(id) === -1 && list.indexOf(id) === i; });
+    if (!list.length) return;
+    var gid = list.length > 1 ? 'g' + Date.now().toString(36) : null;
+    list.forEach(function (id) { state.basket.push(id); if (gid) state.groups[id] = gid; });
     q.value = '';
     closeList();
     persist();
     render();
     q.focus();
   }
+  function togglePick(id) {
+    var i = sel.indexOf(id);
+    if (i === -1) sel.push(id); else sel.splice(i, 1);
+    openList(true);
+  }
   q.addEventListener('input', function () { active = -1; openList(); });
   q.addEventListener('keydown', function (e) {
     if (results.hidden) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, shown.length - 1); openList(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); openList(); }
-    else if (e.key === 'Enter') { e.preventDefault(); var pick = shown[active >= 0 ? active : 0]; if (pick) addProduct(pick.id); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, shown.length - 1); openList(true); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); openList(true); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (sel.length) { addProducts(sel.slice()); return; }
+      var pick = shown[active >= 0 ? active : 0];
+      if (pick) addProducts([pick.id]);
+    }
     else if (e.key === 'Escape') { closeList(); }
   });
   results.addEventListener('mousedown', function (e) {
+    if (e.target.closest('li[data-addsel]')) { e.preventDefault(); addProducts(sel.slice()); return; }
     var li = e.target.closest('li[data-add]');
-    if (li) { e.preventDefault(); addProduct(li.getAttribute('data-add')); }
+    if (!li) return;
+    e.preventDefault();
+    var id = li.getAttribute('data-add');
+    if (e.target.closest('.pick')) togglePick(id); else addProducts([id]);
   });
   document.addEventListener('click', function (e) { if (!e.target.closest('.search')) closeList(); });
 
@@ -506,6 +633,14 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   /* ---------- Other events ---------- */
   host.addEventListener('click', function (e) {
     if (e.target.closest('#retry')) { start(); return; }
+    var k = e.target.closest('[data-keep]');
+    if (k) {
+      var keepId = k.getAttribute('data-keep'), g = state.groups[keepId];
+      state.basket = state.basket.filter(function (x) { return x === keepId || state.groups[x] !== g; });
+      delete state.groups[keepId];
+      persist(); render();
+      return;
+    }
     var b = e.target.closest('[data-rm]');
     if (!b) return;
     var id = b.getAttribute('data-rm');
