@@ -166,6 +166,15 @@ td.alt { color: var(--muted); }
 .acts { display: inline-flex; gap: 6px; align-items: center; flex: none; }
 .keep { border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; min-height: 28px; }
 .keep:hover { background: var(--best-bg); }
+.mergebar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; background: var(--best-bg); color: var(--best-fg); border-radius: 12px; font-weight: 600; }
+.mergebar[hidden] { display: none; }
+.mergebar button { min-height: 36px; border-radius: 999px; padding: 4px 16px; font-weight: 600; border: 1px solid var(--accent); }
+.mergebar .go { background: var(--accent); color: var(--accent-fg); }
+.mergebar .no { background: transparent; color: var(--accent); }
+.mg { flex: none; width: 18px; height: 18px; accent-color: var(--accent); margin: 0; cursor: pointer; }
+.gcount { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+tr.sub td.prod { padding-inline-start: 28px; background: var(--bg); }
+tr.sub td { background: var(--bg); }
 .grphint { font-size: 12px; color: var(--muted); margin: 0; }
 </style>
 </head>
@@ -199,6 +208,8 @@ td.alt { color: var(--muted); }
 
   <p class="warnline" id="warn" hidden></p>
   <section class="summary" id="summary" hidden aria-live="polite"></section>
+
+  <div class="mergebar" id="mergebar" hidden></div>
 
   <section class="grid-wrap" aria-label="טבלת השוואת מחירים">
     <div id="gridHost"><div class="empty">טוען מחירים…</div></div>
@@ -260,6 +271,8 @@ td.alt { color: var(--muted); }
   /* groups: product id -> group id. Products in one group are alternatives to each other,
      and only the cheapest of them in each store counts towards that store's basket total. */
   var state = { city: '', basket: [], groups: {} };
+  var mergeSel = [];      // rows ticked for merging: product ids, or 'g:'+group id
+  var expanded = {};      // merged rows currently opened
   var STORE_KEY = 'cheap-basket-live';
   function cleanGroups() {
     var n = {};
@@ -470,19 +483,26 @@ td.alt { color: var(--muted); }
     });
 
     var body = '';
-    rows.forEach(function (pid) {
-      var g = groupOf(pid);
+    var xsvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>';
+    mergeSel = mergeSel.filter(function (t) {
+      return t.indexOf('g:') === 0 ? units.some(function (u) { return 'g:' + u.group === t; }) : ids.indexOf(t) !== -1;
+    });
+    function isSel(t) { return mergeSel.indexOf(t) !== -1; }
+    function cbox(t) { return '<input type="checkbox" class="mg" data-mg="' + esc(t) + '"' + (isSel(t) ? ' checked' : '') + ' aria-label="סמן לאיחוד שורות">'; }
+
+    /* one row for a single product, or a member row inside an opened group */
+    function productRow(pid, g, asSub) {
       var prices = stores.map(function (s) { return getPrice(pid, s); });
       var min = null;
       prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
       var p = productById(pid);
-      body += '<tr' + (g ? ' class="grp"' : '') + '><td class="prod"><div class="pname"><span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
+      var h = '<tr class="' + (g ? 'grp' : '') + (asSub ? ' sub' : '') + '"><td class="prod"><div class="pname">' + (asSub ? '' : cbox(pid)) +
+        '<span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
         '<span class="acts">' +
         (g ? '<button class="keep" type="button" data-keep="' + esc(pid) + '" title="להשאיר רק את המוצר הזה ולהסיר את שאר המוצרים בהשוואה">השאר</button>' : '') +
-        '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></span></div></td>';
+        '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' + xsvg + '</button></span></div></td>';
       prices.forEach(function (pr, i) {
-        if (pr == null) { body += '<td class="na">אין במלאי</td>'; return; }
+        if (pr == null) { h += '<td class="na">אין במלאי</td>'; return; }
         var cls = 'price', extra = '';
         if (g) {
           var c = totals[i].counted[g];
@@ -495,10 +515,49 @@ td.alt { color: var(--muted); }
           if (pr === min) cls += ' best';
           else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt(pr - min) + '</span>';
         }
+        h += '<td class="' + cls + '">' + fmt(pr) + extra + '</td>';
+      });
+      return h + '</tr>';
+    }
+
+    var anyOpen = false;
+    units.forEach(function (u) {
+      if (!u.group) { body += productRow(u.ids[0], null, false); return; }
+      /* merged group: one row, each store shows the cheapest variant it carries */
+      var open = !!expanded[u.group];
+      if (open) anyOpen = true;
+      var prices = stores.map(function (s) { return unitPrice(u, s).price; });
+      var min = null;
+      prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
+      var p0 = productById(u.ids[0]);
+      var anyW = u.ids.some(function (id) { return productById(id).w; });
+      body += '<tr class="grp gsum"><td class="prod"><div class="pname">' + cbox('g:' + u.group) +
+        '<span class="n">' + esc(p0.name) + '<small class="gcount">' + u.ids.length + ' גרסאות' + (anyW ? ' · לפי משקל' : '') + '</small></span>' +
+        '<span class="acts">' +
+        '<button class="keep" type="button" data-toggle="' + esc(u.group) + '" aria-expanded="' + open + '" title="הצג או הסתר את הגרסאות ובחר אחת להשאיר">' + (open ? 'הסתר' : 'הצג') + '</button>' +
+        '<button class="keep" type="button" data-split="' + esc(u.group) + '" title="פרק לשורות נפרדות">פרק</button>' +
+        '<button class="rm" type="button" data-rmgroup="' + esc(u.group) + '" aria-label="הסר את כל הגרסאות מהסל">' + xsvg + '</button></span></div></td>';
+      prices.forEach(function (pr, i) {
+        if (pr == null) { body += '<td class="na">אין במלאי</td>'; return; }
+        var cls = 'price', extra = '';
+        if (pr === min) cls += ' best';
+        else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt(pr - min) + '</span>';
         body += '<td class="' + cls + '">' + fmt(pr) + extra + '</td>';
       });
       body += '</tr>';
+      if (open) {
+        u.ids.forEach(function (id) { body += productRow(id, u.group, true); });
+      }
     });
+
+    var mb = $('mergebar');
+    if (mergeSel.length >= 2) {
+      mb.hidden = false;
+      mb.innerHTML = '<span>סומנו ' + mergeSel.length + ' שורות</span><button type="button" class="go" data-merge="1">אחד לשורה אחת</button><button type="button" class="no" data-mergecancel="1">בטל</button>';
+    } else if (mergeSel.length === 1) {
+      mb.hidden = false;
+      mb.innerHTML = '<span>סמן עוד שורה כדי לאחד אותן לשורה אחת</span><button type="button" class="no" data-mergecancel="1">בטל</button>';
+    } else { mb.hidden = true; mb.innerHTML = ''; }
 
     var bestIdx = -1, worst = null;
     totals.forEach(function (t, i) {
@@ -515,9 +574,8 @@ td.alt { color: var(--muted); }
         (t.missing ? '<span class="miss">חסרים ' + t.missing + ' מוצרים</span>' : '') + '</td>';
     });
 
-    var hasGroups = units.some(function (u) { return u.group; });
     host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
-      (hasGroups ? '<p class="grphint" style="padding:8px 12px">מוצרים בהשוואה (פס ירוק): בכל חנות נספר בסכום רק המוצר המסומן במסגרת, הזול ביותר שם. המספר באדום הוא התוספת אם תבחר בו. "השאר" משאיר מוצר אחד.</p>' : '');
+      (anyOpen ? '<p class="grphint" style="padding:8px 12px">בשורה ממוזגת, בכל חנות נספר בסכום רק הגרסה שבמסגרת, הזולה ביותר שם. המספר באדום הוא התוספת אם תבחר בגרסה אחרת. "השאר" משאיר גרסה אחת.</p>' : '');
 
     /* buying every item where it is cheapest, in as many stores as needed */
     var split = 0, splitOk = true;
@@ -649,7 +707,7 @@ td.alt { color: var(--muted); }
     citySel.value = state.city;
   }
   citySel.addEventListener('change', function () {
-    state.city = citySel.value; persist(); closeList();
+    state.city = citySel.value; mergeSel = []; persist(); closeList();
     host.innerHTML = '<div class="empty">טוען מחירים…</div>';
     loadCity(state.city).then(render).catch(showFailure);
   });
@@ -665,10 +723,49 @@ td.alt { color: var(--muted); }
       persist(); render();
       return;
     }
+    var mgc = e.target.closest('input.mg');
+    if (mgc) {
+      var tok = mgc.getAttribute('data-mg'), at = mergeSel.indexOf(tok);
+      if (at === -1) mergeSel.push(tok); else mergeSel.splice(at, 1);
+      render();
+      return;
+    }
+    var tg = e.target.closest('[data-toggle]');
+    if (tg) { var tgid = tg.getAttribute('data-toggle'); expanded[tgid] = !expanded[tgid]; render(); return; }
+    var sp = e.target.closest('[data-split]');
+    if (sp) {
+      var spid = sp.getAttribute('data-split');
+      Object.keys(state.groups).forEach(function (id) { if (state.groups[id] === spid) delete state.groups[id]; });
+      delete expanded[spid];
+      persist(); render();
+      return;
+    }
+    var rg = e.target.closest('[data-rmgroup]');
+    if (rg) {
+      var rgid = rg.getAttribute('data-rmgroup');
+      state.basket = state.basket.filter(function (x) { return state.groups[x] !== rgid; });
+      persist(); render();
+      return;
+    }
     var b = e.target.closest('[data-rm]');
     if (!b) return;
     var id = b.getAttribute('data-rm');
     state.basket = state.basket.filter(function (x) { return x !== id; });
+    persist(); render();
+  });
+  $('mergebar').addEventListener('click', function (e) {
+    if (e.target.closest('[data-mergecancel]')) { mergeSel = []; render(); return; }
+    if (!e.target.closest('[data-merge]')) return;
+    var members = [], gids = {};
+    mergeSel.forEach(function (t) {
+      if (t.indexOf('g:') === 0) gids[t.slice(2)] = true; else members.push(t);
+    });
+    state.basket.forEach(function (id) { if (gids[state.groups[id]]) members.push(id); });
+    var firstG = Object.keys(gids)[0];
+    var gid = firstG || 'g' + Date.now().toString(36);
+    members.forEach(function (id) { state.groups[id] = gid; });
+    expanded[gid] = false;
+    mergeSel = [];
     persist(); render();
   });
   refreshBtn.addEventListener('click', function () {
