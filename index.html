@@ -96,6 +96,9 @@ select, input[type="search"], input[type="text"] {
 .results .size { color: var(--muted); font-size: 12px; margin-inline-start: 6px; }
 .results li[aria-selected="true"] .size, .results li:hover .size { color: inherit; }
 .results .nm { min-width: 0; }
+.results .chs { display: block; font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+.results .chs b { color: var(--fg); font-weight: 700; }
+.results li[aria-selected="true"] .chs, .results li:hover .chs, .results li[aria-selected="true"] .chs b, .results li:hover .chs b { color: inherit; }
 .results .from { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
 .results .none { color: var(--muted); cursor: default; }
 .results .none:hover { background: none; color: var(--muted); }
@@ -105,11 +108,14 @@ select, input[type="search"], input[type="text"] {
 .summary .txt { min-width: 0; }
 .summary .save { color: var(--muted); font-size: 14px; }
 
-.grid-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.grid-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: auto; max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); }
 table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 520px; font-variant-numeric: tabular-nums; }
 th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: center; vertical-align: middle; }
-thead th { background: var(--surface); font-weight: 600; vertical-align: bottom; }
+thead th { background: var(--surface); font-weight: 600; vertical-align: bottom; position: sticky; top: 0; z-index: 3; box-shadow: 0 1px 0 var(--line); }
 th.prod, td.prod { text-align: right; position: sticky; right: 0; background: var(--surface); z-index: 2; min-width: 170px; border-left: 1px solid var(--line); }
+thead th.prod { z-index: 4; }
+tfoot td { position: sticky; bottom: 0; z-index: 2; }
+tfoot td.prod { z-index: 4; }
 .chain { font-weight: 700; font-size: 14px; }
 .branch { font-weight: 400; font-size: 12px; color: var(--muted); max-width: 120px; margin: 0 auto; overflow-wrap: anywhere; }
 tbody tr:last-child td, tfoot td { border-bottom: 0; }
@@ -301,6 +307,17 @@ td.alt { color: var(--muted); }
       if (p != null && (m == null || p < m)) m = p;
     });
     return m;
+  }
+  /* chains that carry a product in this city, cheapest first (the cheapest one in bold) */
+  function chainsFor(pid) {
+    var best = {};
+    getStores().forEach(function (s) {
+      var p = getPrice(pid, s);
+      if (p != null && (best[s.chain.name] == null || p < best[s.chain.name])) best[s.chain.name] = p;
+    });
+    return Object.keys(best).sort(function (a, b) { return best[a] - best[b]; }).map(function (n, i) {
+      return i === 0 ? '<b>' + esc(n) + '</b>' : esc(n);
+    });
   }
   function ago(d) {
     var m = Math.round((Date.now() - d.getTime()) / 60000);
@@ -570,7 +587,7 @@ td.alt { color: var(--muted); }
           : (p.size && p.name.indexOf(p.size) === -1 ? '<span class="size">' + esc(p.size) + '</span>' : '');
         html += '<li role="option" data-add="' + esc(p.id) + '" aria-selected="' + (i === active) + '">' +
           '<input type="checkbox" class="pick" tabindex="-1" aria-label="סמן להשוואה"' + (sel.indexOf(p.id) !== -1 ? ' checked' : '') + '>' +
-          '<span class="nm">' + esc(p.name) + sz + '</span>' +
+          '<span class="nm">' + esc(p.name) + sz + '<span class="chs">' + (chainsFor(p.id).join(' · ') || 'אין מחיר') + '</span></span>' +
           (m != null ? '<span class="from">מ־' + fmt(m) + '</span>' : '') + '</li>';
       });
       if (all.length > shown.length) {
