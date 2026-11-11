@@ -1,755 +1,759 @@
 {
-  "chains": [
-    "shufersal",
-    "rami-levy",
-    "yochananof",
-    "osher-ad",
-    "victory",
-    "carrefour",
-    "hatzi-hinam",
-    "tiv-taam"
-  ],
-  "stores_per_chain": 1,
-  "candidate_stores": 6,
-  "fill_gaps": true,
-  "min_chains": 1,
-  "max_products": 25000,
-  "include_unbarcoded": true,
-  "loose_min_chains": 1,
-  "max_loose": 10000,
-  "cities": [
-    {
-      "key": "jerusalem",
-      "name": "ירושלים",
-      "match": [
-        "ירושלים"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "tel-aviv",
-      "name": "תל אביב-יפו",
-      "match": [
-        "תל אביב"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "haifa",
-      "name": "חיפה",
-      "match": [
-        "חיפה"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "rishon",
-      "name": "ראשון לציון",
-      "match": [
-        "ראשון לציון"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "petah-tikva",
-      "name": "פתח תקווה",
-      "match": [
-        "פתח תקווה",
-        "פתח תקוה"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "ashdod",
-      "name": "אשדוד",
-      "match": [
-        "אשדוד"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "netanya",
-      "name": "נתניה",
-      "match": [
-        "נתניה"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "beer-sheva",
-      "name": "באר שבע",
-      "match": [
-        "באר שבע"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "bnei-brak",
-      "name": "בני ברק",
-      "match": [
-        "בני ברק"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "holon",
-      "name": "חולון",
-      "match": [
-        "חולון"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "ramat-gan",
-      "name": "רמת גן",
-      "match": [
-        "רמת גן"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "ashkelon",
-      "name": "אשקלון",
-      "match": [
-        "אשקלון"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "rehovot",
-      "name": "רחובות",
-      "match": [
-        "רחובות"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "bat-yam",
-      "name": "בת ים",
-      "match": [
-        "בת ים"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "beit-shemesh",
-      "name": "בית שמש",
-      "match": [
-        "בית שמש"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "kfar-saba",
-      "name": "כפר סבא",
-      "match": [
-        "כפר סבא"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "herzliya",
-      "name": "הרצליה",
-      "match": [
-        "הרצליה"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "hadera",
-      "name": "חדרה",
-      "match": [
-        "חדרה"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "modiin",
-      "name": "מודיעין-מכבים-רעות",
-      "match": [
-        "מודיעין מכבים רעות",
-        "מודיעין"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "raanana",
-      "name": "רעננה",
-      "match": [
-        "רעננה"
-      ],
-      "enabled": true
-    },
-    {
-      "key": "hod-hasharon",
-      "name": "הוד השרון",
-      "match": [
-        "הוד השרון"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "rosh-haayin",
-      "name": "ראש העין",
-      "match": [
-        "ראש העין"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "nes-ziona",
-      "name": "נס ציונה",
-      "match": [
-        "נס ציונה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "lod",
-      "name": "לוד",
-      "match": [
-        "לוד"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "ramla",
-      "name": "רמלה",
-      "match": [
-        "רמלה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "eilat",
-      "name": "אילת",
-      "match": [
-        "אילת"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "nazareth",
-      "name": "נצרת",
-      "match": [
-        "נצרת"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "nof-hagalil",
-      "name": "נוף הגליל",
-      "match": [
-        "נוף הגליל",
-        "נצרת עילית"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-ata",
-      "name": "קרית אתא",
-      "match": [
-        "קרית אתא"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "givatayim",
-      "name": "גבעתיים",
-      "match": [
-        "גבעתיים"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "nahariya",
-      "name": "נהריה",
-      "match": [
-        "נהריה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-gat",
-      "name": "קרית גת",
-      "match": [
-        "קרית גת"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "afula",
-      "name": "עפולה",
-      "match": [
-        "עפולה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "acre",
-      "name": "עכו",
-      "match": [
-        "עכו"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "karmiel",
-      "name": "כרמיאל",
-      "match": [
-        "כרמיאל"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "tiberias",
-      "name": "טבריה",
-      "match": [
-        "טבריה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-motzkin",
-      "name": "קרית מוצקין",
-      "match": [
-        "קרית מוצקין"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-bialik",
-      "name": "קרית ביאליק",
-      "match": [
-        "קרית ביאליק"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-ono",
-      "name": "קרית אונו",
-      "match": [
-        "קרית אונו"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "yavne",
-      "name": "יבנה",
-      "match": [
-        "יבנה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "ramat-hasharon",
-      "name": "רמת השרון",
-      "match": [
-        "רמת השרון"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "sderot",
-      "name": "שדרות",
-      "match": [
-        "שדרות"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "dimona",
-      "name": "דימונה",
-      "match": [
-        "דימונה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "yokneam",
-      "name": "יקנעם",
-      "match": [
-        "יקנעם עילית",
-        "יקנעם"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "or-yehuda",
-      "name": "אור יהודה",
-      "match": [
-        "אור יהודה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-shmona",
-      "name": "קרית שמונה",
-      "match": [
-        "קרית שמונה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "safed",
-      "name": "צפת",
-      "match": [
-        "צפת"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "netivot",
-      "name": "נתיבות",
-      "match": [
-        "נתיבות"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "ofakim",
-      "name": "אופקים",
-      "match": [
-        "אופקים"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "arad",
-      "name": "ערד",
-      "match": [
-        "ערד"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "mevaseret-zion",
-      "name": "מבשרת ציון",
-      "match": [
-        "מבשרת ציון"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "migdal-haemek",
-      "name": "מגדל העמק",
-      "match": [
-        "מגדל העמק"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "beit-shean",
-      "name": "בית שאן",
-      "match": [
-        "בית שאן"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-malachi",
-      "name": "קרית מלאכי",
-      "match": [
-        "קרית מלאכי"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "or-akiva",
-      "name": "אור עקיבא",
-      "match": [
-        "אור עקיבא"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "shoham",
-      "name": "שוהם",
-      "match": [
-        "שוהם"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-yam",
-      "name": "קרית ים",
-      "match": [
-        "קרית ים"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "tirat-carmel",
-      "name": "טירת כרמל",
-      "match": [
-        "טירת כרמל"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "yehud",
-      "name": "יהוד-מונוסון",
-      "match": [
-        "יהוד"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "gedera",
-      "name": "גדרה",
-      "match": [
-        "גדרה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kfar-yona",
-      "name": "כפר יונה",
-      "match": [
-        "כפר יונה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "pardes-hanna",
-      "name": "פרדס חנה-כרכור",
-      "match": [
-        "פרדס חנה",
-        "כרכור"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "zichron-yaakov",
-      "name": "זכרון יעקב",
-      "match": [
-        "זכרון יעקב",
-        "זיכרון יעקב"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "binyamina",
-      "name": "בנימינה",
-      "match": [
-        "בנימינה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "caesarea",
-      "name": "קיסריה",
-      "match": [
-        "קיסריה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "ariel",
-      "name": "אריאל",
-      "match": [
-        "אריאל"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "maale-adumim",
-      "name": "מעלה אדומים",
-      "match": [
-        "מעלה אדומים"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "modiin-illit",
-      "name": "מודיעין עילית",
-      "match": [
-        "מודיעין עילית"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "beitar-illit",
-      "name": "ביתר עילית",
-      "match": [
-        "ביתר עילית"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "elad",
-      "name": "אלעד",
-      "match": [
-        "אלעד"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "givat-shmuel",
-      "name": "גבעת שמואל",
-      "match": [
-        "גבעת שמואל"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-tivon",
-      "name": "קרית טבעון",
-      "match": [
-        "קרית טבעון"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "maalot-tarshiha",
-      "name": "מעלות-תרשיחא",
-      "match": [
-        "מעלות תרשיחא",
-        "מעלות"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "umm-al-fahm",
-      "name": "אום אל פחם",
-      "match": [
-        "אום אל פחם"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "tamra",
-      "name": "טמרה",
-      "match": [
-        "טמרה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "sakhnin",
-      "name": "סח'נין",
-      "match": [
-        "סחנין"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "taibe",
-      "name": "טייבה",
-      "match": [
-        "טייבה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kafr-qasim",
-      "name": "כפר קאסם",
-      "match": [
-        "כפר קאסם"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "rahat",
-      "name": "רהט",
-      "match": [
-        "רהט"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "shefa-amr",
-      "name": "שפרעם",
-      "match": [
-        "שפרעם"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "nesher",
-      "name": "נשר",
-      "match": [
-        "נשר"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "ganei-tikva",
-      "name": "גני תקווה",
-      "match": [
-        "גני תקווה",
-        "גני תקוה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "kiryat-ekron",
-      "name": "קרית עקרון",
-      "match": [
-        "קרית עקרון"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "gan-yavne",
-      "name": "גן יבנה",
-      "match": [
-        "גן יבנה"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "beer-yaakov",
-      "name": "באר יעקב",
-      "match": [
-        "באר יעקב"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "yeruham",
-      "name": "ירוחם",
-      "match": [
-        "ירוחם"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "mitzpe-ramon",
-      "name": "מצפה רמון",
-      "match": [
-        "מצפה רמון"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "katzrin",
-      "name": "קצרין",
-      "match": [
-        "קצרין"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "hatzor",
-      "name": "חצור הגלילית",
-      "match": [
-        "חצור הגלילית"
-      ],
-      "enabled": false
-    },
-    {
-      "key": "rosh-pina",
-      "name": "ראש פינה",
-      "match": [
-        "ראש פינה"
-      ],
-      "enabled": false
-    }
-  ],
-  "watch": [
-    "פילה סלמון",
-    "7290000653280",
-    "46405"
-  ]
+ "chains": [
+  "shufersal",
+  "rami-levy",
+  "yochananof",
+  "osher-ad",
+  "victory",
+  "carrefour",
+  "hatzi-hinam",
+  "tiv-taam"
+ ],
+ "stores_per_chain": 1,
+ "candidate_stores": 6,
+ "fill_gaps": true,
+ "min_chains": 1,
+ "max_products": 25000,
+ "include_unbarcoded": true,
+ "loose_min_chains": 1,
+ "max_loose": 10000,
+ "cities": [
+  {
+   "key": "jerusalem",
+   "name": "ירושלים",
+   "match": [
+    "ירושלים"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "tel-aviv",
+   "name": "תל אביב-יפו",
+   "match": [
+    "תל אביב"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "haifa",
+   "name": "חיפה",
+   "match": [
+    "חיפה"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "rishon",
+   "name": "ראשון לציון",
+   "match": [
+    "ראשון לציון"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "petah-tikva",
+   "name": "פתח תקווה",
+   "match": [
+    "פתח תקווה",
+    "פתח תקוה"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "ashdod",
+   "name": "אשדוד",
+   "match": [
+    "אשדוד"
+   ],
+   "enabled": true,
+   "branches": {
+    "shufersal": "הבושם"
+   }
+  },
+  {
+   "key": "netanya",
+   "name": "נתניה",
+   "match": [
+    "נתניה"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "beer-sheva",
+   "name": "באר שבע",
+   "match": [
+    "באר שבע"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "bnei-brak",
+   "name": "בני ברק",
+   "match": [
+    "בני ברק"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "holon",
+   "name": "חולון",
+   "match": [
+    "חולון"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "ramat-gan",
+   "name": "רמת גן",
+   "match": [
+    "רמת גן"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "ashkelon",
+   "name": "אשקלון",
+   "match": [
+    "אשקלון"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "rehovot",
+   "name": "רחובות",
+   "match": [
+    "רחובות"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "bat-yam",
+   "name": "בת ים",
+   "match": [
+    "בת ים"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "beit-shemesh",
+   "name": "בית שמש",
+   "match": [
+    "בית שמש"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "kfar-saba",
+   "name": "כפר סבא",
+   "match": [
+    "כפר סבא"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "herzliya",
+   "name": "הרצליה",
+   "match": [
+    "הרצליה"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "hadera",
+   "name": "חדרה",
+   "match": [
+    "חדרה"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "modiin",
+   "name": "מודיעין-מכבים-רעות",
+   "match": [
+    "מודיעין מכבים רעות",
+    "מודיעין"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "raanana",
+   "name": "רעננה",
+   "match": [
+    "רעננה"
+   ],
+   "enabled": true
+  },
+  {
+   "key": "hod-hasharon",
+   "name": "הוד השרון",
+   "match": [
+    "הוד השרון"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "rosh-haayin",
+   "name": "ראש העין",
+   "match": [
+    "ראש העין"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "nes-ziona",
+   "name": "נס ציונה",
+   "match": [
+    "נס ציונה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "lod",
+   "name": "לוד",
+   "match": [
+    "לוד"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "ramla",
+   "name": "רמלה",
+   "match": [
+    "רמלה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "eilat",
+   "name": "אילת",
+   "match": [
+    "אילת"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "nazareth",
+   "name": "נצרת",
+   "match": [
+    "נצרת"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "nof-hagalil",
+   "name": "נוף הגליל",
+   "match": [
+    "נוף הגליל",
+    "נצרת עילית"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-ata",
+   "name": "קרית אתא",
+   "match": [
+    "קרית אתא"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "givatayim",
+   "name": "גבעתיים",
+   "match": [
+    "גבעתיים"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "nahariya",
+   "name": "נהריה",
+   "match": [
+    "נהריה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-gat",
+   "name": "קרית גת",
+   "match": [
+    "קרית גת"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "afula",
+   "name": "עפולה",
+   "match": [
+    "עפולה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "acre",
+   "name": "עכו",
+   "match": [
+    "עכו"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "karmiel",
+   "name": "כרמיאל",
+   "match": [
+    "כרמיאל"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "tiberias",
+   "name": "טבריה",
+   "match": [
+    "טבריה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-motzkin",
+   "name": "קרית מוצקין",
+   "match": [
+    "קרית מוצקין"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-bialik",
+   "name": "קרית ביאליק",
+   "match": [
+    "קרית ביאליק"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-ono",
+   "name": "קרית אונו",
+   "match": [
+    "קרית אונו"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "yavne",
+   "name": "יבנה",
+   "match": [
+    "יבנה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "ramat-hasharon",
+   "name": "רמת השרון",
+   "match": [
+    "רמת השרון"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "sderot",
+   "name": "שדרות",
+   "match": [
+    "שדרות"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "dimona",
+   "name": "דימונה",
+   "match": [
+    "דימונה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "yokneam",
+   "name": "יקנעם",
+   "match": [
+    "יקנעם עילית",
+    "יקנעם"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "or-yehuda",
+   "name": "אור יהודה",
+   "match": [
+    "אור יהודה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-shmona",
+   "name": "קרית שמונה",
+   "match": [
+    "קרית שמונה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "safed",
+   "name": "צפת",
+   "match": [
+    "צפת"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "netivot",
+   "name": "נתיבות",
+   "match": [
+    "נתיבות"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "ofakim",
+   "name": "אופקים",
+   "match": [
+    "אופקים"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "arad",
+   "name": "ערד",
+   "match": [
+    "ערד"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "mevaseret-zion",
+   "name": "מבשרת ציון",
+   "match": [
+    "מבשרת ציון"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "migdal-haemek",
+   "name": "מגדל העמק",
+   "match": [
+    "מגדל העמק"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "beit-shean",
+   "name": "בית שאן",
+   "match": [
+    "בית שאן"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-malachi",
+   "name": "קרית מלאכי",
+   "match": [
+    "קרית מלאכי"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "or-akiva",
+   "name": "אור עקיבא",
+   "match": [
+    "אור עקיבא"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "shoham",
+   "name": "שוהם",
+   "match": [
+    "שוהם"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-yam",
+   "name": "קרית ים",
+   "match": [
+    "קרית ים"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "tirat-carmel",
+   "name": "טירת כרמל",
+   "match": [
+    "טירת כרמל"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "yehud",
+   "name": "יהוד-מונוסון",
+   "match": [
+    "יהוד"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "gedera",
+   "name": "גדרה",
+   "match": [
+    "גדרה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kfar-yona",
+   "name": "כפר יונה",
+   "match": [
+    "כפר יונה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "pardes-hanna",
+   "name": "פרדס חנה-כרכור",
+   "match": [
+    "פרדס חנה",
+    "כרכור"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "zichron-yaakov",
+   "name": "זכרון יעקב",
+   "match": [
+    "זכרון יעקב",
+    "זיכרון יעקב"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "binyamina",
+   "name": "בנימינה",
+   "match": [
+    "בנימינה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "caesarea",
+   "name": "קיסריה",
+   "match": [
+    "קיסריה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "ariel",
+   "name": "אריאל",
+   "match": [
+    "אריאל"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "maale-adumim",
+   "name": "מעלה אדומים",
+   "match": [
+    "מעלה אדומים"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "modiin-illit",
+   "name": "מודיעין עילית",
+   "match": [
+    "מודיעין עילית"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "beitar-illit",
+   "name": "ביתר עילית",
+   "match": [
+    "ביתר עילית"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "elad",
+   "name": "אלעד",
+   "match": [
+    "אלעד"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "givat-shmuel",
+   "name": "גבעת שמואל",
+   "match": [
+    "גבעת שמואל"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-tivon",
+   "name": "קרית טבעון",
+   "match": [
+    "קרית טבעון"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "maalot-tarshiha",
+   "name": "מעלות-תרשיחא",
+   "match": [
+    "מעלות תרשיחא",
+    "מעלות"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "umm-al-fahm",
+   "name": "אום אל פחם",
+   "match": [
+    "אום אל פחם"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "tamra",
+   "name": "טמרה",
+   "match": [
+    "טמרה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "sakhnin",
+   "name": "סח'נין",
+   "match": [
+    "סחנין"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "taibe",
+   "name": "טייבה",
+   "match": [
+    "טייבה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kafr-qasim",
+   "name": "כפר קאסם",
+   "match": [
+    "כפר קאסם"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "rahat",
+   "name": "רהט",
+   "match": [
+    "רהט"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "shefa-amr",
+   "name": "שפרעם",
+   "match": [
+    "שפרעם"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "nesher",
+   "name": "נשר",
+   "match": [
+    "נשר"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "ganei-tikva",
+   "name": "גני תקווה",
+   "match": [
+    "גני תקווה",
+    "גני תקוה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "kiryat-ekron",
+   "name": "קרית עקרון",
+   "match": [
+    "קרית עקרון"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "gan-yavne",
+   "name": "גן יבנה",
+   "match": [
+    "גן יבנה"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "beer-yaakov",
+   "name": "באר יעקב",
+   "match": [
+    "באר יעקב"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "yeruham",
+   "name": "ירוחם",
+   "match": [
+    "ירוחם"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "mitzpe-ramon",
+   "name": "מצפה רמון",
+   "match": [
+    "מצפה רמון"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "katzrin",
+   "name": "קצרין",
+   "match": [
+    "קצרין"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "hatzor",
+   "name": "חצור הגלילית",
+   "match": [
+    "חצור הגלילית"
+   ],
+   "enabled": false
+  },
+  {
+   "key": "rosh-pina",
+   "name": "ראש פינה",
+   "match": [
+    "ראש פינה"
+   ],
+   "enabled": false
+  }
+ ],
+ "watch": [
+  "פילה סלמון",
+  "7290000653280",
+  "46405",
+  "מלפפון"
+ ]
 }

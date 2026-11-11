@@ -214,8 +214,15 @@ def main() -> int:
         entries = []
         for slug in chains_cfg:
             if slug in store_lists:
-                for s in pick_stores(store_lists[slug], city["match"], cand):
-                    entries.append({"chain": slug, "store_id": s.store_id, "label": branch_label(s)})
+                pool = pick_stores(store_lists[slug], city["match"], 10**6)
+                pin = (city.get("branches") or {}).get(slug)
+                pinned = [x for x in pool if pin and has_term(" ".join(y for y in (x.address, x.name) if y), [pin])]
+                if pin and not pinned:
+                    log(f'[pin] {city["name"]}/{slug}: no branch in the city matches "{pin}", choosing by size')
+                rest = [x for x in pool if x not in pinned]
+                for s in pinned + rest[:cand]:
+                    entries.append({"chain": slug, "store_id": s.store_id, "label": branch_label(s),
+                                    "pin": s in pinned})
                     jobs[(slug, s.store_id)] = None
             else:
                 prev = get_prev(city["key"])
@@ -264,7 +271,7 @@ def main() -> int:
         for ch, es in by_chain.items():
             got = [e for e in es if (e["chain"], e["store_id"]) in files]
             if got:
-                got.sort(key=lambda e: -len(files[(e["chain"], e["store_id"])].items))
+                got.sort(key=lambda e: (not e.get("pin"), -len(files[(e["chain"], e["store_id"])].items)))
                 entries += got[:per_chain]
                 if fill_gaps:
                     extras[ch] = [files[(e["chain"], e["store_id"])] for e in got[per_chain:]]
