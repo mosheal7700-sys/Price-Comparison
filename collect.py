@@ -147,8 +147,22 @@ def size_label(item) -> str:
 
 
 def branch_label(store) -> str:
-    label = (store.name or store.address or store.store_id or "").strip()
-    return label[:40]
+    """Branch name; when the name says nothing but the city (or is empty or a bare number), the street address is added."""
+    name = (store.name or "").strip()
+    addr = (store.address or "").strip()
+    city = (getattr(store, "city", "") or "").strip()
+    rest = cnorm(name)
+    for w in cnorm(city).split():
+        rest = rest.replace(w, " ")
+    only_city = not re.sub(r"[\W_]+", "", rest)
+    bare = not re.sub(r"[\d\W_]+|סניף|חנות|מספר", "", rest)
+    if addr and (only_city or not name):
+        label = addr
+    elif addr and bare:
+        label = f"{name}, {addr}"
+    else:
+        label = name or store.store_id or ""
+    return label.strip()[:60]
 
 
 def main() -> int:
