@@ -119,21 +119,72 @@ def norm_name(name: str, keep_numbers: bool = False) -> str:
     return " ".join(t for t in toks if t and t not in _STOP_STEMS)
 
 
-def pick_stores(stores, terms, limit):
+def pick_stores(stores, terms, limit, fuzzy=False):
     """Branches whose city, address or name contains one of the city terms."""
+    has = fuzzy_has if fuzzy else has_term
     scored = []
     seen = set()
     for s in stores:
         if s.store_id in seen:
             continue
-        in_city = bool(s.city) and has_term(s.city, terms)
+        in_city = bool(s.city) and has(s.city, terms)
         text = " ".join(x for x in (s.address, s.name) if x)
-        in_text = has_term(text, terms)
+        in_text = has(text, terms)
         if in_city or in_text:
             seen.add(s.store_id)
             scored.append((0 if in_city else 1, s))
     scored.sort(key=lambda x: x[0])
     return [s for _, s in scored[:limit]]
+
+
+# Spellings and abbreviations chains use for city names. Applied only as a fallback,
+# when an exact match finds no branch of a chain in a city.
+_CITY_ALIASES = {
+    "ראשון לציון": ["ראשלצ", "ראשל צ"],
+    "תל אביב יפו": ["תל אביב", "תא", "ת א"],
+    "תל אביב": ["תל אביב יפו", "תא", "ת א"],
+    "ירושלים": ["ירושלם"],
+    "פתח תקווה": ["פתח תקוה", "פת", "פ ת"],
+    "באר שבע": ["בש", "ב ש", "באר שבע"],
+    "רמת גן": ["רג", "ר ג"],
+    "קריית גת": ["קרית גת"],
+    "בני ברק": ["ב ב"],
+    "נס ציונה": ["נס ציונא"],
+    "הוד השרון": ["הוד השרון"],
+    "כפר סבא": ["כפר סבא"],
+}
+
+
+def _lev1(a: str, b: str) -> bool:
+    """True if a and b differ by at most one inserted, deleted or replaced letter."""
+    if a == b:
+        return True
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) > len(b):
+        a, b = b, a
+    i = 0
+    while i < len(a) and a[i] == b[i]:
+        i += 1
+    if len(a) == len(b):
+        return a[i + 1:] == b[i + 1:]
+    return a[i:] == b[i + 1:]
+
+
+def fuzzy_has(text: str, terms) -> bool:
+    """Like has_term, but a word of five letters or more may be misspelled by one letter,
+    and known abbreviations of the city are accepted."""
+    toks = cnorm(text).split()
+    for t in terms:
+        alts = [cnorm(t)] + [cnorm(x) for x in _CITY_ALIASES.get(cnorm(t), [])]
+        for alt in alts:
+            w = alt.split()
+            if not w:
+                continue
+            for i in range(len(toks) - len(w) + 1):
+                if all(toks[i + k] == w[k] or (len(w[k]) >= 5 and _lev1(toks[i + k], w[k])) for k in range(len(w))):
+                    return True
+    return False
 
 
 def size_label(item) -> str:
@@ -179,6 +230,7 @@ def main() -> int:
     cand_cfg = int(cfg.get("candidate_stores", 6))
     cand = 10**6 if cand_cfg <= 0 else max(per_chain, cand_cfg)  # 0 = every branch in the city
     fill_gaps = bool(cfg.get("fill_gaps", True))
+    fuzzy = bool(cfg.get("fuzzy_city_match", True))  # retry with spelling variants when a chain has no branch in a city
     min_chains = int(cfg.get("min_chains", 1))
     max_products = int(cfg.get("max_products", 0)) or 10**9  # 0 = no limit
     include_loose = bool(cfg.get("include_unbarcoded", True))
@@ -213,6 +265,13 @@ def main() -> int:
             else:
                 store_lists[slug] = stores
                 log(f"[stores] {slug}: {len(stores)} branches")
+                # how the chain spells its cities: shows why a branch is or is not matched to a city
+                cc: dict[str, int] = {}
+                for st_ in stores:
+                    k_ = (getattr(st_, "city", "") or "").strip() or "(no city)"
+                    cc[k_] = cc.get(k_, 0) + 1
+                top_ = sorted(cc.items(), key=lambda kv: -kv[1])[:120]
+                log(f"[cities] {slug}: " + ", ".join(f"{k}({n})" for k, n in top_))
 
     # 2. which branches serve which city
     prev_cache: dict[str, dict | None] = {}
@@ -226,9 +285,14 @@ def main() -> int:
     jobs: dict[tuple, None] = {}
     for city in cities_cfg:
         entries = []
+        match_counts: dict[str, int] = {}
         for slug in chains_cfg:
             if slug in store_lists:
                 pool = pick_stores(store_lists[slug], city["match"], 10**6)
+                if not pool and fuzzy:
+                    pool = pick_stores(store_lists[slug], city["match"], 10**6, fuzzy=True)
+                    if pool:
+                        log(f"[match] {city['name']}/{slug}: no exact match, {len(pool)} branches found by spelling variants")
 
                 def _find(term):
                     """'id:34' = the branch whose store number is 34 (searched in the whole chain);
@@ -244,6 +308,7 @@ def main() -> int:
                     for x in pool[:40]:
                         log(f'[pin]   {slug} branch {x.store_id}: name="{x.name}" address="{x.address}" city="{getattr(x, "city", "")}"')
 
+                match_counts[slug] = len(pool)
                 pin = (city.get("branches") or {}).get(slug)
                 pinned = _find(pin)
                 if pin and not pinned:
@@ -266,6 +331,10 @@ def main() -> int:
                         if st["chain"] == slug:
                             sid = st["id"].split(":", 1)[1]
                             entries.append({"chain": slug, "store_id": sid, "label": st.get("b", "")})
+        if match_counts:
+            miss = [k for k, n in match_counts.items() if n == 0]
+            log(f"[match] {city['name']}: " + " ".join(f"{k}={n}" for k, n in match_counts.items())
+                + (f"  <-- no branch found for: {', '.join(miss)}" if miss else ""))
         plans.append((city, entries))
 
     # 3. one city at a time: download its price files, write the city file, free the memory.
