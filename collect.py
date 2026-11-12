@@ -233,10 +233,15 @@ def main() -> int:
                 pinned = [x for x in pool if pin and has_term(" ".join(y for y in (x.address, x.name) if y), [pin])]
                 if pin and not pinned:
                     log(f'[pin] {city["name"]}/{slug}: no branch in the city matches "{pin}", choosing by size')
-                rest = [x for x in pool if x not in pinned]
-                for s in pinned + rest[:cand]:
+                xterm = (city.get("extra_branches") or {}).get(slug)
+                extra = [x for x in pool if xterm and x not in pinned
+                         and has_term(" ".join(y for y in (x.address, x.name) if y), [xterm])]
+                if xterm and not extra:
+                    log(f'[pin] {city["name"]}/{slug}: no branch in the city matches extra "{xterm}"')
+                rest = [x for x in pool if x not in pinned and x not in extra]
+                for s in pinned + extra + rest[:cand]:
                     entries.append({"chain": slug, "store_id": s.store_id, "label": branch_label(s),
-                                    "pin": s in pinned})
+                                    "pin": s in pinned, "extra": s in extra})
                     jobs[(slug, s.store_id)] = None
             else:
                 prev = get_prev(city["key"])
@@ -286,9 +291,11 @@ def main() -> int:
             got = [e for e in es if (e["chain"], e["store_id"]) in files]
             if got:
                 got.sort(key=lambda e: (not e.get("pin"), -len(files[(e["chain"], e["store_id"])].items)))
-                entries += got[:per_chain]
+                add = [e for e in got if e.get("extra")]          # extra_branches: always a column of their own
+                main = [e for e in got if not e.get("extra")]
+                entries += main[:per_chain] + add
                 if fill_gaps:
-                    extras[ch] = [files[(e["chain"], e["store_id"])] for e in got[per_chain:]]
+                    extras[ch] = [files[(e["chain"], e["store_id"])] for e in main[per_chain:]]
             else:
                 entries += es[:per_chain]
         prev = get_prev(city["key"]) if any((e["chain"], e["store_id"]) not in files for e in entries) else None

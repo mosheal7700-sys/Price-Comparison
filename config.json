@@ -68,6 +68,9 @@
    "enabled": true,
    "branches": {
     "shufersal": "הבושם"
+   },
+   "extra_branches": {
+    "osher-ad": "תרשיש"
    }
   },
   {
