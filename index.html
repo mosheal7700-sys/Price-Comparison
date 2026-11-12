@@ -351,15 +351,8 @@ tr.sub td { background: var(--bg); }
   }
   function updateNotes() {
     note.innerHTML = '<span>המחירים נלקחים מקבצי שקיפות המחירים שהרשתות מפרסמות לפי חוק, ונאספים אוטומטית כל כמה שעות. הכפתור "רענן מחירים" טוען את העדכון האחרון. מחירי המבצעים אינם כלולים, ומחיר בסניף עשוי להיות שונה מהמחיר בקופה.</span>';
-    var bad = [];
-    var chains = (liveIndex && liveIndex.chains) || {};
-    Object.keys(chains).forEach(function (k) { if (chains[k] && chains[k].ok === false) bad.push(chains[k].name || k); });
-    if (bad.length) {
-      warn.hidden = false;
-      warn.textContent = 'לא התקבל עדכון חדש מ: ' + bad.join(', ') + '. אם יש נתונים קודמים, הם מסומנים כישנים.';
-    } else {
-      warn.hidden = true;
-    }
+    /* a chain without a fresh update is flagged in its own column header ("נתונים ישנים"), not by a page-wide warning */
+    warn.hidden = true;
   }
 
   /* ---------- Failure screen: says what failed instead of showing made-up data ---------- */

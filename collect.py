@@ -229,15 +229,31 @@ def main() -> int:
         for slug in chains_cfg:
             if slug in store_lists:
                 pool = pick_stores(store_lists[slug], city["match"], 10**6)
+
+                def _find(term):
+                    """'id:34' = the branch whose store number is 34 (searched in the whole chain);
+                    anything else = a word in the branch name or address (searched in the city)."""
+                    if not term:
+                        return []
+                    if str(term).startswith("id:"):
+                        want = str(term)[3:].strip().lstrip("0")
+                        return [x for x in store_lists[slug] if str(x.store_id).strip().lstrip("0") == want]
+                    return [x for x in pool if has_term(" ".join(y for y in (x.address, x.name) if y), [term])]
+
+                def _list_pool():
+                    for x in pool[:40]:
+                        log(f'[pin]   {slug} branch {x.store_id}: name="{x.name}" address="{x.address}" city="{getattr(x, "city", "")}"')
+
                 pin = (city.get("branches") or {}).get(slug)
-                pinned = [x for x in pool if pin and has_term(" ".join(y for y in (x.address, x.name) if y), [pin])]
+                pinned = _find(pin)
                 if pin and not pinned:
-                    log(f'[pin] {city["name"]}/{slug}: no branch in the city matches "{pin}", choosing by size')
+                    log(f'[pin] {city["name"]}/{slug}: no branch matches "{pin}", choosing by size')
+                    _list_pool()
                 xterm = (city.get("extra_branches") or {}).get(slug)
-                extra = [x for x in pool if xterm and x not in pinned
-                         and has_term(" ".join(y for y in (x.address, x.name) if y), [xterm])]
+                extra = [x for x in _find(xterm) if x not in pinned]
                 if xterm and not extra:
-                    log(f'[pin] {city["name"]}/{slug}: no branch in the city matches extra "{xterm}"')
+                    log(f'[pin] {city["name"]}/{slug}: no branch matches extra "{xterm}"')
+                    _list_pool()
                 rest = [x for x in pool if x not in pinned and x not in extra]
                 for s in pinned + extra + rest[:cand]:
                     entries.append({"chain": slug, "store_id": s.store_id, "label": branch_label(s),
