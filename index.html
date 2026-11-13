@@ -166,6 +166,11 @@ td.alt { color: var(--muted); }
 .acts { display: inline-flex; gap: 6px; align-items: center; flex: none; }
 .keep { border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; min-height: 28px; }
 .keep:hover { background: var(--best-bg); }
+.lostbar { padding: 10px 14px; background: var(--warn-bg, #fff4d6); color: var(--warn-fg, #6b4a00); border-radius: 12px; font-size: 14px; line-height: 1.6; }
+.lostbar[hidden] { display: none; }
+.lostbar ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.lostbar li { display: flex; align-items: center; gap: 8px; }
+.lostbar button { min-height: 28px; border-radius: 999px; border: 1px solid currentColor; background: transparent; color: inherit; padding: 0 12px; }
 .mergebar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; background: var(--best-bg); color: var(--best-fg); border-radius: 12px; font-weight: 600; }
 .mergebar[hidden] { display: none; }
 .mergebar button { min-height: 36px; border-radius: 999px; padding: 4px 16px; font-weight: 600; border: 1px solid var(--accent); }
@@ -208,6 +213,8 @@ tr.sub td { background: var(--bg); }
 
   <p class="warnline" id="warn" hidden></p>
   <section class="summary" id="summary" hidden aria-live="polite"></section>
+
+  <div class="lostbar" id="lostbar" hidden></div>
 
   <div class="mergebar" id="mergebar" hidden></div>
 
@@ -270,7 +277,7 @@ tr.sub td { background: var(--bg); }
   /* ---------- State ---------- */
   /* groups: product id -> group id. Products in one group are alternatives to each other,
      and only the cheapest of them in each store counts towards that store's basket total. */
-  var state = { city: '', basket: [], groups: {} };
+  var state = { city: '', basket: [], groups: {}, names: {} };   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
   var mergeSel = [];      // rows ticked for merging: product ids, or 'g:'+group id
   var expanded = {};      // merged rows currently opened
   var STORE_KEY = 'cheap-basket-live';
@@ -286,6 +293,7 @@ tr.sub td { background: var(--bg); }
     state.city = liveIndex.cities[0].name;
     state.basket = [];
     state.groups = {};
+    state.names = {};
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved) return;
@@ -298,11 +306,45 @@ tr.sub td { background: var(--bg); }
         if (typeof saved.groups[id] === 'string') state.groups[id] = saved.groups[id];
       });
     }
+    if (saved.names && typeof saved.names === 'object') {
+      Object.keys(saved.names).forEach(function (id) {
+        var v = saved.names[id];
+        if (v && typeof v.n === 'string') state.names[id] = { n: v.n, s: typeof v.s === 'string' ? v.s : '' };
+      });
+    }
     cleanGroups();
   }
+  /* A product's id can change between data updates. When a saved item is gone, look for the same
+     name and size in the current catalog; if exactly one product matches, the item moves to it. */
+  function healBasket() {
+    if (!cityData) return;
+    var byName = null;
+    state.basket.slice().forEach(function (id) {
+      if (productById(id)) return;
+      var nm = state.names[id];
+      if (!nm) return;
+      if (!byName) {
+        byName = {};
+        catalog.forEach(function (c) { var k = c.name + '|' + c.size; (byName[k] = byName[k] || []).push(c.id); });
+      }
+      var hit = byName[nm.n + '|' + nm.s];
+      if (hit && hit.length === 1 && state.basket.indexOf(hit[0]) === -1) {
+        var at = state.basket.indexOf(id);
+        state.basket[at] = hit[0];
+        if (state.groups[id]) { state.groups[hit[0]] = state.groups[id]; delete state.groups[id]; }
+        state.names[hit[0]] = nm; delete state.names[id];
+      }
+    });
+  }
   function persist() {
+    state.basket.forEach(function (id) {
+      var p = productById(id);
+      if (p) state.names[id] = { n: p.name, s: p.size || '' };
+    });
+    Object.keys(state.names).forEach(function (id) { if (state.basket.indexOf(id) === -1) delete state.names[id]; });
     cleanGroups();
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups })); } catch (e) {}
+    cleanGroups();
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names })); } catch (e) {}
   }
   function basketIds() { return state.basket.filter(function (id) { return !!productById(id); }); }
 
@@ -416,6 +458,17 @@ tr.sub td { background: var(--bg); }
     var ids = basketIds();
     updateStamp();
     updateNotes();
+    var lost = state.basket.filter(function (id) { return !productById(id); });
+    var lb = $('lostbar');
+    if (lost.length) {
+      lb.hidden = false;
+      lb.innerHTML = '<strong>' + lost.length + (lost.length === 1 ? ' מוצר שבסל לא נמצא' : ' מוצרים שבסל לא נמצאו') + ' בנתונים העדכניים.</strong> ' +
+        'הם נשמרו ויחזרו לטבלה אם יופיעו שוב בעדכון הבא.<ul>' +
+        lost.map(function (id) {
+          var nm = state.names[id];
+          return '<li><span>' + esc(nm ? nm.n + (nm.s ? ' ' + nm.s : '') : 'מוצר שמור (קוד ' + id + ')') + '</span><button type="button" data-rmlost="' + esc(id) + '">הסר</button></li>';
+        }).join('') + '</ul>';
+    } else { lb.hidden = true; lb.innerHTML = ''; }
 
     if (!stores.length) {
       host.innerHTML = '<div class="empty"><strong>אין נתונים לעיר הזו</strong>בחר עיר אחרת.</div>';
@@ -702,7 +755,7 @@ tr.sub td { background: var(--bg); }
   citySel.addEventListener('change', function () {
     state.city = citySel.value; mergeSel = []; persist(); closeList();
     host.innerHTML = '<div class="empty">טוען מחירים…</div>';
-    loadCity(state.city).then(render).catch(showFailure);
+    loadCity(state.city).then(function () { healBasket(); persist(); render(); }).catch(showFailure);
   });
 
   /* ---------- Other events ---------- */
@@ -746,6 +799,14 @@ tr.sub td { background: var(--bg); }
     state.basket = state.basket.filter(function (x) { return x !== id; });
     persist(); render();
   });
+  $('lostbar').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-rmlost]');
+    if (!b) return;
+    var id = b.getAttribute('data-rmlost');
+    state.basket = state.basket.filter(function (x) { return x !== id; });
+    delete state.names[id];
+    persist(); render();
+  });
   $('mergebar').addEventListener('click', function (e) {
     if (e.target.closest('[data-mergecancel]')) { mergeSel = []; render(); return; }
     if (!e.target.closest('[data-merge]')) return;
@@ -778,7 +839,7 @@ tr.sub td { background: var(--bg); }
       q.disabled = false; q.placeholder = 'הקלד מילה, למשל: חלב, אורז, שמן';
       citySel.disabled = false;
       fillCities();
-      return loadCity(state.city).then(render);
+      return loadCity(state.city).then(function () { healBasket(); persist(); render(); });
     }).catch(showFailure);
   }
   start();

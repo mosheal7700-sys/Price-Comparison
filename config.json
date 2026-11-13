@@ -24,7 +24,8 @@
    "match": [
     "ירושלים"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 3000
   },
   {
    "key": "tel-aviv",
@@ -32,7 +33,8 @@
    "match": [
     "תל אביב"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 5000
   },
   {
    "key": "haifa",
@@ -40,7 +42,8 @@
    "match": [
     "חיפה"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 4000
   },
   {
    "key": "rishon",
@@ -48,7 +51,8 @@
    "match": [
     "ראשון לציון"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 8300
   },
   {
    "key": "petah-tikva",
@@ -57,7 +61,8 @@
     "פתח תקווה",
     "פתח תקוה"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 7900
   },
   {
    "key": "ashdod",
@@ -71,7 +76,8 @@
    },
    "extra_branches": {
     "osher-ad": "id:34"
-   }
+   },
+   "code": 70
   },
   {
    "key": "netanya",
@@ -79,7 +85,8 @@
    "match": [
     "נתניה"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 7400
   },
   {
    "key": "beer-sheva",
@@ -87,7 +94,8 @@
    "match": [
     "באר שבע"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 9000
   },
   {
    "key": "bnei-brak",
@@ -95,7 +103,8 @@
    "match": [
     "בני ברק"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 6100
   },
   {
    "key": "holon",
@@ -103,7 +112,8 @@
    "match": [
     "חולון"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 6600
   },
   {
    "key": "ramat-gan",
@@ -111,7 +121,8 @@
    "match": [
     "רמת גן"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 8600
   },
   {
    "key": "ashkelon",
@@ -119,7 +130,8 @@
    "match": [
     "אשקלון"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 7100
   },
   {
    "key": "rehovot",
@@ -127,7 +139,8 @@
    "match": [
     "רחובות"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 8400
   },
   {
    "key": "bat-yam",
@@ -135,7 +148,8 @@
    "match": [
     "בת ים"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 6200
   },
   {
    "key": "beit-shemesh",
@@ -143,7 +157,8 @@
    "match": [
     "בית שמש"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 2610
   },
   {
    "key": "kfar-saba",
@@ -151,7 +166,8 @@
    "match": [
     "כפר סבא"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 6900
   },
   {
    "key": "herzliya",
@@ -159,7 +175,8 @@
    "match": [
     "הרצליה"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 6400
   },
   {
    "key": "hadera",
@@ -167,7 +184,8 @@
    "match": [
     "חדרה"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 6500
   },
   {
    "key": "modiin",
@@ -176,7 +194,8 @@
     "מודיעין מכבים רעות",
     "מודיעין"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 1200
   },
   {
    "key": "raanana",
@@ -184,7 +203,8 @@
    "match": [
     "רעננה"
    ],
-   "enabled": true
+   "enabled": true,
+   "code": 8700
   },
   {
    "key": "hod-hasharon",
@@ -192,7 +212,8 @@
    "match": [
     "הוד השרון"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 9700
   },
   {
    "key": "rosh-haayin",
@@ -200,7 +221,8 @@
    "match": [
     "ראש העין"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 2640
   },
   {
    "key": "nes-ziona",
@@ -216,7 +238,8 @@
    "match": [
     "לוד"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 7000
   },
   {
    "key": "ramla",
@@ -224,7 +247,8 @@
    "match": [
     "רמלה"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 8500
   },
   {
    "key": "eilat",
@@ -232,7 +256,8 @@
    "match": [
     "אילת"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 2600
   },
   {
    "key": "nazareth",
@@ -240,7 +265,8 @@
    "match": [
     "נצרת"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 7300
   },
   {
    "key": "nof-hagalil",
@@ -265,7 +291,8 @@
    "match": [
     "גבעתיים"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 6300
   },
   {
    "key": "nahariya",
@@ -273,7 +300,8 @@
    "match": [
     "נהריה"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 9100
   },
   {
    "key": "kiryat-gat",
@@ -281,7 +309,8 @@
    "match": [
     "קרית גת"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 2630
   },
   {
    "key": "afula",
@@ -289,7 +318,8 @@
    "match": [
     "עפולה"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 7700
   },
   {
    "key": "acre",
@@ -297,7 +327,8 @@
    "match": [
     "עכו"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 7600
   },
   {
    "key": "karmiel",
@@ -305,7 +336,8 @@
    "match": [
     "כרמיאל"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 1139
   },
   {
    "key": "tiberias",
@@ -313,7 +345,8 @@
    "match": [
     "טבריה"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 6700
   },
   {
    "key": "kiryat-motzkin",
@@ -345,7 +378,8 @@
    "match": [
     "יבנה"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 2660
   },
   {
    "key": "ramat-hasharon",
@@ -361,7 +395,8 @@
    "match": [
     "שדרות"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 1031
   },
   {
    "key": "dimona",
@@ -394,7 +429,8 @@
    "match": [
     "קרית שמונה"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 2800
   },
   {
    "key": "safed",
@@ -410,7 +446,8 @@
    "match": [
     "נתיבות"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 246
   },
   {
    "key": "ofakim",
@@ -418,7 +455,8 @@
    "match": [
     "אופקים"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 31
   },
   {
    "key": "arad",
@@ -442,7 +480,8 @@
    "match": [
     "מגדל העמק"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 874
   },
   {
    "key": "beit-shean",
@@ -564,7 +603,8 @@
    "match": [
     "מעלה אדומים"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 3616
   },
   {
    "key": "modiin-illit",
@@ -580,7 +620,8 @@
    "match": [
     "ביתר עילית"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 3780
   },
   {
    "key": "elad",
@@ -677,7 +718,8 @@
    "match": [
     "נשר"
    ],
-   "enabled": false
+   "enabled": false,
+   "code": 2500
   },
   {
    "key": "ganei-tikva",

@@ -119,15 +119,20 @@ def norm_name(name: str, keep_numbers: bool = False) -> str:
     return " ".join(t for t in toks if t and t not in _STOP_STEMS)
 
 
-def pick_stores(stores, terms, limit, fuzzy=False):
-    """Branches whose city, address or name contains one of the city terms."""
+def _is_code(v) -> bool:
+    return bool(re.fullmatch(r"\d+", str(v or "").strip())) and str(v).strip().lstrip("0") != ""
+
+
+def pick_stores(stores, terms, limit, fuzzy=False, codes=None):
+    """Branches whose city, address or name contains one of the city terms,
+    or whose city field is one of the city's numeric (CBS) codes."""
     has = fuzzy_has if fuzzy else has_term
     scored = []
     seen = set()
     for s in stores:
         if s.store_id in seen:
             continue
-        in_city = bool(s.city) and has(s.city, terms)
+        in_city = (bool(s.city) and has(s.city, terms)) or bool(codes and _is_code(s.city) and str(s.city).strip().lstrip('0') in codes)
         text = " ".join(x for x in (s.address, s.name) if x)
         in_text = has(text, terms)
         if in_city or in_text:
@@ -281,6 +286,27 @@ def main() -> int:
             prev_cache[key] = fetch_prev(args.prev_base, f"city-{key}.json")
         return prev_cache[key]
 
+    # Some chains (Rami Levy, Osher Ad) record a branch's city as a numeric CBS code (3000 = Jerusalem),
+    # and their branch names often omit the city. Codes come from config ("code") and are also learned:
+    # a code seen on at least two branches already matched to the city by name or address belongs to it.
+    city_codes: dict[str, set] = {}
+    for city in cities_cfg:
+        cfg_code = city.get("code")
+        codes = {str(x).strip().lstrip("0") for x in (cfg_code if isinstance(cfg_code, list) else [cfg_code]) if x}
+        votes: dict[str, int] = {}
+        for slug_, sts_ in store_lists.items():
+            for st_ in pick_stores(sts_, city["match"], 10**6):
+                if _is_code(st_.city):
+                    k_ = str(st_.city).strip().lstrip("0")
+                    votes[k_] = votes.get(k_, 0) + 1
+        tot_ = sum(votes.values())
+        learned = {k for k, n in votes.items() if n >= 2 and n >= 0.6 * tot_}
+        if learned and codes and not (learned & codes):
+            log(f"[codes] {city['name']}: config code {sorted(codes)} disagrees with codes seen on matched branches {votes}; using both")
+        city_codes[city["key"]] = codes | learned
+        if city_codes[city["key"]]:
+            log(f"[codes] {city['name']}: {sorted(city_codes[city['key']])}" + (f" (learned {sorted(learned)})" if learned else ""))
+
     plans = []  # (city, entries)
     jobs: dict[tuple, None] = {}
     for city in cities_cfg:
@@ -288,9 +314,9 @@ def main() -> int:
         match_counts: dict[str, int] = {}
         for slug in chains_cfg:
             if slug in store_lists:
-                pool = pick_stores(store_lists[slug], city["match"], 10**6)
+                pool = pick_stores(store_lists[slug], city["match"], 10**6, codes=city_codes.get(city["key"]))
                 if not pool and fuzzy:
-                    pool = pick_stores(store_lists[slug], city["match"], 10**6, fuzzy=True)
+                    pool = pick_stores(store_lists[slug], city["match"], 10**6, fuzzy=True, codes=city_codes.get(city["key"]))
                     if pool:
                         log(f"[match] {city['name']}/{slug}: no exact match, {len(pool)} branches found by spelling variants")
 
@@ -321,7 +347,8 @@ def main() -> int:
                     _list_pool()
                 rest = [x for x in pool if x not in pinned and x not in extra]
                 for s in pinned + extra + rest[:cand]:
-                    entries.append({"chain": slug, "store_id": s.store_id, "label": branch_label(s),
+                    custom = (city.get("labels") or {}).get(f"{slug}:{str(s.store_id).strip().lstrip('0')}")
+                    entries.append({"chain": slug, "store_id": s.store_id, "label": custom or branch_label(s),
                                     "pin": s in pinned, "extra": s in extra})
                     jobs[(slug, s.store_id)] = None
             else:
