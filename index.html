@@ -309,13 +309,18 @@ tr.sub td { background: var(--bg); }
     if (saved.names && typeof saved.names === 'object') {
       Object.keys(saved.names).forEach(function (id) {
         var v = saved.names[id];
-        if (v && typeof v.n === 'string') state.names[id] = { n: v.n, s: typeof v.s === 'string' ? v.s : '' };
+        if (v && typeof v.n === 'string') state.names[id] = { n: v.n, s: typeof v.s === 'string' ? v.s : '', c: typeof v.c === 'string' ? v.c : '' };
       });
     }
     cleanGroups();
   }
   /* A product's id can change between data updates. When a saved item is gone, look for the same
      name and size in the current catalog; if exactly one product matches, the item moves to it. */
+  function chainSig(pid) {
+    var seen = {};
+    getStores().forEach(function (s) { if (getPrice(pid, s) != null) seen[s.chain.name] = 1; });
+    return Object.keys(seen).sort().join('|');
+  }
   function healBasket() {
     if (!cityData) return;
     var byName = null;
@@ -327,8 +332,12 @@ tr.sub td { background: var(--bg); }
         byName = {};
         catalog.forEach(function (c) { var k = c.name + '|' + c.size; (byName[k] = byName[k] || []).push(c.id); });
       }
-      var hit = byName[nm.n + '|' + nm.s];
-      if (hit && hit.length === 1 && state.basket.indexOf(hit[0]) === -1) {
+      var hit = (byName[nm.n + '|' + nm.s] || []).filter(function (x) { return state.basket.indexOf(x) === -1; });
+      if (hit.length > 1 && nm.c) {            // several products share the name: keep the ones sold by the same chains
+        var same = hit.filter(function (x) { return chainSig(x) === nm.c; });
+        if (same.length) hit = same;
+      }
+      if (hit.length === 1) {
         var at = state.basket.indexOf(id);
         state.basket[at] = hit[0];
         if (state.groups[id]) { state.groups[hit[0]] = state.groups[id]; delete state.groups[id]; }
@@ -339,7 +348,7 @@ tr.sub td { background: var(--bg); }
   function persist() {
     state.basket.forEach(function (id) {
       var p = productById(id);
-      if (p) state.names[id] = { n: p.name, s: p.size || '' };
+      if (p) state.names[id] = { n: p.name, s: p.size || '', c: chainSig(id) };
     });
     Object.keys(state.names).forEach(function (id) { if (state.basket.indexOf(id) === -1) delete state.names[id]; });
     cleanGroups();
