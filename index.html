@@ -304,6 +304,7 @@ tr.sub td { background: var(--bg); }
   var focusMove = null;   // keeps keyboard focus on the arrow that was just used
   var mergeSel = [];      // rows ticked for merging: product ids, or 'g:'+group id
   var expanded = {};      // merged rows currently opened
+  var MAX_BASKET = 2000;   // upper bound only to guard against corrupt data; the basket itself is not limited
   var STORE_KEY = 'cheap-basket-live';
   /* Diagnostics: a short event log kept in the browser; shown at the bottom of the page when the address ends with ?debug=1 */
   var LOG_KEY = 'cheap-basket-log';
@@ -340,7 +341,7 @@ tr.sub td { background: var(--bg); }
     if (!saved) { dbg('load: nothing saved'); return; }
     if (liveIndex.cities.some(function (c) { return c.name === saved.city; })) state.city = saved.city;
     if (Array.isArray(saved.basket)) {
-      state.basket = saved.basket.filter(function (id) { return typeof id === 'string'; }).slice(0, 100);
+      state.basket = saved.basket.filter(function (id) { return typeof id === 'string'; }).slice(0, MAX_BASKET);
     }
     if (saved.groups && typeof saved.groups === 'object') {
       Object.keys(saved.groups).forEach(function (id) {
@@ -490,7 +491,7 @@ tr.sub td { background: var(--bg); }
       var v2 = o.v === 2, arr = v2 ? o.b : o.basket;
       if (!Array.isArray(arr)) return null;
       inc.city = typeof (v2 ? o.c : o.city) === 'string' ? (v2 ? o.c : o.city) : '';
-      arr.forEach(function (id) { if (typeof id === 'string' && inc.basket.length < 100 && inc.basket.indexOf(id) === -1) inc.basket.push(id); });
+      arr.forEach(function (id) { if (typeof id === 'string' && inc.basket.length < MAX_BASKET && inc.basket.indexOf(id) === -1) inc.basket.push(id); });
       var idAt = function (k) { return v2 ? inc.basket[+k] : k; };
       var has = function (id) { return typeof id === 'string' && inc.basket.indexOf(id) !== -1; };
       var gsrc = (v2 ? o.g : o.groups) || {};
@@ -522,7 +523,7 @@ tr.sub td { background: var(--bg); }
     if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; }
     var ns = 'i' + Date.now().toString(36);   // keeps imported group ids apart from this device's own
     var rename = function (g) { return ns + g; };
-    inc.basket.forEach(function (id) { if (state.basket.indexOf(id) === -1 && state.basket.length < 100) state.basket.push(id); });
+    inc.basket.forEach(function (id) { if (state.basket.indexOf(id) === -1 && state.basket.length < MAX_BASKET) state.basket.push(id); });
     Object.keys(inc.groups).forEach(function (id) { state.groups[id] = rename(inc.groups[id]); });
     Object.keys(inc.names).forEach(function (id) { state.names[id] = inc.names[id]; });
     Object.keys(inc.pins).forEach(function (g) { state.pins[rename(g)] = Object.assign(state.pins[rename(g)] || {}, inc.pins[g]); });
