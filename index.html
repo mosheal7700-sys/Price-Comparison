@@ -216,6 +216,7 @@ tr.sub td { background: var(--bg); }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2"/></svg>
         <span>העבר סל</span>
       </button>
+      <button class="btn ghost" id="prune" type="button" hidden title="מסיר משורות ממוזגות את הפריטים שלא הזולים באף חנות ולא נבחרו ידנית"><span></span></button>
     </div>
   </header>
   <div class="importbar" id="importbar" hidden></div>
@@ -407,6 +408,23 @@ tr.sub td { background: var(--bg); }
     try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins })); }
     catch (e) { dbg('SAVE FAILED: ' + e); try { toast('לא ניתן לשמור את הסל בדפדפן'); } catch (e2) {} return; }
     dbg('save: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length);
+  }
+  /* Members of merged rows that no store uses: not the cheapest in any store and not picked by hand. */
+  function unusedMembers() {
+    if (!cityData) return [];
+    var stores = getStores(), byG = {}, out = [];
+    state.basket.forEach(function (id) { var g = state.groups[id]; if (g && productById(id)) (byG[g] = byG[g] || []).push(id); });
+    Object.keys(byG).forEach(function (g) {
+      var ids = byG[g], used = {};
+      stores.forEach(function (s) {
+        var pin = state.pins[g] && state.pins[g][s.id], best = null, who = null;
+        if (pin && ids.indexOf(pin) !== -1 && getPrice(pin, s) != null) { used[pin] = true; return; }
+        ids.forEach(function (id) { var p = getPrice(id, s); if (p != null && (best === null || p < best)) { best = p; who = id; } });
+        if (who) used[who] = true;
+      });
+      ids.forEach(function (id) { if (!used[id]) out.push(id); });
+    });
+    return out;
   }
   function basketIds() { return state.basket.filter(function (id) { return !!productById(id); }); }
 
@@ -643,13 +661,18 @@ tr.sub td { background: var(--bg); }
 
   /* ---------- Render ---------- */
   function render() {
-    try { renderTable(); dbg('render: shown=' + basketIds().length + ' of ' + state.basket.length); }
+    try { renderTable(); updatePrune(); dbg('render: shown=' + basketIds().length + ' of ' + state.basket.length); }
     catch (err) {
       dbg('RENDER ERROR: ' + (err && err.message));
       try { console.error(err); } catch (e) {}
       host.innerHTML = '<div class="empty"><strong>שגיאה בבניית הטבלה</strong>הסל שלך נשמר ולא נמחק. אפשר לרענן את הדף. פרטי השגיאה: ' + esc(String(err && err.message || err)) + '</div>';
       summary.hidden = true;
     }
+  }
+  function updatePrune() {
+    var b = $('prune'), n = unusedMembers().length;
+    b.hidden = !n;
+    if (n) b.firstChild.textContent = 'נקה ' + n + ' פריטים שלא בשימוש';
   }
   function renderTable() {
     var stores = getStores();
@@ -1111,6 +1134,15 @@ tr.sub td { background: var(--bg); }
       host.innerHTML = '<div class="empty">טוען מחירים…</div>';
       loadCity(state.city).then(done).catch(showFailure);
     } else done();
+  });
+  $('prune').addEventListener('click', function () {
+    var un = unusedMembers();
+    if (!un.length) return;
+    if (!window.confirm('להסיר מהסל ' + un.length + ' פריטים משורות ממוזגות?\nאלה פריטים שאינם הזולים באף חנות ולא נבחרו ידנית. השורות עצמן נשארות והמחירים בהן לא משתנים.')) return;
+    state.basket = state.basket.filter(function (id) { return un.indexOf(id) === -1; });
+    un.forEach(function (id) { delete state.names[id]; });
+    persist(); render();
+    toast('הוסרו ' + un.length + ' פריטים');
   });
   $('share').addEventListener('click', function () {
     if (!state.basket.length) { toast('הסל ריק. הוסף מוצרים ואז העבר אותו'); return; }
