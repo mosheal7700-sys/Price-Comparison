@@ -172,6 +172,10 @@ td.alt { color: var(--muted); }
 .lostbar ul { list-style: none; margin: 6px 0 0; padding: 0; }
 .lostbar li { display: flex; align-items: center; gap: 8px; }
 .lostbar button { min-height: 28px; border-radius: 999px; border: 1px solid currentColor; background: transparent; color: inherit; padding: 0 12px; }
+.orig { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 150px; margin: 3px auto 0; font-size: 11px; font-weight: 400; line-height: 1.25; color: var(--muted); }
+td[data-pin] { cursor: pointer; }
+td[data-pin]:hover { background: var(--best-bg); }
+.pinlbl { display: block; font-size: 10px; font-weight: 600; color: var(--accent); }
 .mergebar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; background: var(--best-bg); color: var(--best-fg); border-radius: 12px; font-weight: 600; }
 .mergebar[hidden] { display: none; }
 .mergebar button { min-height: 36px; border-radius: 999px; padding: 4px 16px; font-weight: 600; border: 1px solid var(--accent); }
@@ -278,7 +282,7 @@ tr.sub td { background: var(--bg); }
   /* ---------- State ---------- */
   /* groups: product id -> group id. Products in one group are alternatives to each other,
      and only the cheapest of them in each store counts towards that store's basket total. */
-  var state = { city: '', basket: [], groups: {}, names: {} };   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
+  var state = { city: '', basket: [], groups: {}, names: {}, pins: {} };   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
   var mergeSel = [];      // rows ticked for merging: product ids, or 'g:'+group id
   var expanded = {};      // merged rows currently opened
   var STORE_KEY = 'cheap-basket-live';
@@ -289,12 +293,20 @@ tr.sub td { background: var(--bg); }
       var g = state.groups[id]; n[g] = (n[g] || 0) + 1;
     });
     Object.keys(state.groups).forEach(function (id) { if (n[state.groups[id]] < 2) delete state.groups[id]; });
+    Object.keys(state.pins).forEach(function (g) {
+      Object.keys(state.pins[g]).forEach(function (sid) {
+        var pid = state.pins[g][sid];
+        if (state.basket.indexOf(pid) === -1 || state.groups[pid] !== g) delete state.pins[g][sid];
+      });
+      if (!Object.keys(state.pins[g]).length) delete state.pins[g];
+    });
   }
   function initState() {
     state.city = liveIndex.cities[0].name;
     state.basket = [];
     state.groups = {};
     state.names = {};
+    state.pins = {};
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved) return;
@@ -311,6 +323,13 @@ tr.sub td { background: var(--bg); }
       Object.keys(saved.names).forEach(function (id) {
         var v = saved.names[id];
         if (v && typeof v.n === 'string') state.names[id] = { n: v.n, s: typeof v.s === 'string' ? v.s : '', c: typeof v.c === 'string' ? v.c : '' };
+      });
+    }
+    if (saved.pins && typeof saved.pins === 'object') {
+      Object.keys(saved.pins).forEach(function (g) {
+        var m = saved.pins[g];
+        if (!m || typeof m !== 'object') return;
+        Object.keys(m).forEach(function (sid) { if (typeof m[sid] === 'string') { (state.pins[g] = state.pins[g] || {})[sid] = m[sid]; } });
       });
     }
     cleanGroups();
@@ -342,6 +361,7 @@ tr.sub td { background: var(--bg); }
         var at = state.basket.indexOf(id);
         state.basket[at] = hit[0];
         if (state.groups[id]) { state.groups[hit[0]] = state.groups[id]; delete state.groups[id]; }
+        Object.keys(state.pins).forEach(function (g) { Object.keys(state.pins[g]).forEach(function (sid) { if (state.pins[g][sid] === id) state.pins[g][sid] = hit[0]; }); });
         state.names[hit[0]] = nm; delete state.names[id];
       }
     });
@@ -354,7 +374,7 @@ tr.sub td { background: var(--bg); }
     Object.keys(state.names).forEach(function (id) { if (state.basket.indexOf(id) === -1) delete state.names[id]; });
     cleanGroups();
     cleanGroups();
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names })); } catch (e) {}
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins })); } catch (e) {}
   }
   function basketIds() { return state.basket.filter(function (id) { return !!productById(id); }); }
 
@@ -510,6 +530,11 @@ tr.sub td { background: var(--bg); }
     units.forEach(function (u) { u.ids.forEach(function (id) { rows.push(id); }); });
 
     function unitPrice(u, s) {
+      var pin = u.group && state.pins[u.group] && state.pins[u.group][s.id];
+      if (pin && u.ids.indexOf(pin) !== -1) {
+        var pp = getPrice(pin, s);
+        if (pp != null) return { price: pp, id: pin, pinned: true };
+      }
       var best = null, who = null;
       u.ids.forEach(function (id) {
         var pr = getPrice(id, s);
@@ -559,11 +584,15 @@ tr.sub td { background: var(--bg); }
         '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' + xsvg + '</button></span></div></td>';
       prices.forEach(function (pr, i) {
         if (pr == null) { h += '<td class="na">אין במלאי</td>'; return; }
-        var cls = 'price', extra = '';
+        var cls = 'price', extra = '', attr = '';
         if (g) {
           var c = totals[i].counted[g];
-          if (c && c.id === pid) cls += ' counted';
-          else {
+          attr = ' data-pin="' + esc(pid) + '" data-gid="' + esc(g) + '" data-sid="' + esc(stores[i].id) + '"';
+          if (c && c.id === pid) {
+            cls += ' counted';
+            if (c.pinned) { cls += ' pinned'; extra = '<span class="pinlbl" title="נבחר ידנית לחנות הזו. לחיצה מחזירה לבחירה האוטומטית">נבחר ידנית ✕</span>'; attr += ' title="לחיצה מחזירה לבחירה האוטומטית (הזול ביותר)"'; }
+          } else {
+            attr += ' title="לחיצה בוחרת את הגרסה הזו לחנות הזו"';
             cls += ' alt';
             if (c && pr - c.price >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמוצר הזול בהשוואה, באותה חנות">+' + fmt(pr - c.price) + '</span>';
           }
@@ -571,7 +600,7 @@ tr.sub td { background: var(--bg); }
           if (pr === min) cls += ' best';
           else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt(pr - min) + '</span>';
         }
-        h += '<td class="' + cls + '">' + fmt(pr) + extra + '</td>';
+        h += '<td class="' + cls + '"' + attr + '>' + fmt(pr) + extra + '</td>';
       });
       return h + '</tr>';
     }
@@ -582,7 +611,8 @@ tr.sub td { background: var(--bg); }
       /* merged group: one row, each store shows the cheapest variant it carries */
       var open = !!expanded[u.group];
       if (open) anyOpen = true;
-      var prices = stores.map(function (s) { return unitPrice(u, s).price; });
+      var ups = stores.map(function (s) { return unitPrice(u, s); });
+      var prices = ups.map(function (x) { return x.price; });
       var min = null;
       prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
       var p0 = productById(u.ids[0]);
@@ -598,7 +628,9 @@ tr.sub td { background: var(--bg); }
         var cls = 'price', extra = '';
         if (pr === min) cls += ' best';
         else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt(pr - min) + '</span>';
-        body += '<td class="' + cls + '">' + fmt(pr) + extra + '</td>';
+        var who = productById(ups[i].id);
+        var desc = who ? '<span class="orig" title="' + esc(who.name) + '">' + esc(who.name) + (ups[i].pinned ? ' · ידני' : '') + '</span>' : '';
+        body += '<td class="' + cls + '">' + fmt(pr) + extra + desc + '</td>';
       });
       body += '</tr>';
       if (open) {
@@ -631,7 +663,7 @@ tr.sub td { background: var(--bg); }
     });
 
     host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
-      (anyOpen ? '<p class="grphint" style="padding:8px 12px">בשורה ממוזגת, בכל חנות נספר בסכום רק הגרסה שבמסגרת, הזולה ביותר שם. המספר באדום הוא התוספת אם תבחר בגרסה אחרת. "השאר" משאיר גרסה אחת.</p>' : '');
+      (anyOpen ? '<p class="grphint" style="padding:8px 12px">בשורה ממוזגת, בכל חנות נספרת בסכום רק הגרסה שבמסגרת, כברירת מחדל הזולה ביותר שם. המספר באדום הוא התוספת אם תבחר בגרסה אחרת. לחיצה על מחיר של גרסה בחנות מסוימת בוחרת אותה לחנות הזו, ולחיצה נוספת מחזירה לבחירה האוטומטית. "השאר" משאיר גרסה אחת.</p>' : '');
 
     /* buying every item where it is cheapest, in as many stores as needed */
     var split = 0, splitOk = true;
@@ -780,6 +812,14 @@ tr.sub td { background: var(--bg); }
       var keepId = k.getAttribute('data-keep'), g = state.groups[keepId];
       state.basket = state.basket.filter(function (x) { return x === keepId || state.groups[x] !== g; });
       delete state.groups[keepId];
+      persist(); render();
+      return;
+    }
+    var pc = e.target.closest('td[data-pin]');
+    if (pc) {
+      var pg_ = pc.getAttribute('data-gid'), ps_ = pc.getAttribute('data-sid'), pp_ = pc.getAttribute('data-pin');
+      state.pins[pg_] = state.pins[pg_] || {};
+      if (state.pins[pg_][ps_] === pp_) { delete state.pins[pg_][ps_]; } else { state.pins[pg_][ps_] = pp_; }
       persist(); render();
       return;
     }
