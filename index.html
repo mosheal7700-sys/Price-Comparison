@@ -178,6 +178,11 @@ td.alt { color: var(--muted); }
 .lostbar ul { list-style: none; margin: 6px 0 0; padding: 0; }
 .lostbar li { display: flex; align-items: center; gap: 8px; }
 .lostbar button { min-height: 28px; border-radius: 999px; border: 1px solid currentColor; background: transparent; color: inherit; padding: 0 12px; }
+.mv { flex: none; display: flex; flex-direction: column; gap: 2px; }
+.mv button { width: 28px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
+.mv button:hover:not(:disabled) { background: var(--best-bg); color: var(--accent); border-color: var(--accent); }
+.mv button:disabled { opacity: .3; cursor: default; }
+.mv svg { width: 14px; height: 14px; }
 .orig { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 150px; margin: 3px auto 0; font-size: 11px; font-weight: 400; line-height: 1.25; color: var(--muted); }
 td[data-pin] { cursor: pointer; }
 td[data-pin]:hover { background: var(--best-bg); }
@@ -295,6 +300,8 @@ tr.sub td { background: var(--bg); }
   /* groups: product id -> group id. Products in one group are alternatives to each other,
      and only the cheapest of them in each store counts towards that store's basket total. */
   var state = { city: '', basket: [], groups: {}, names: {}, pins: {} };   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
+  var lastUnits = [];     // the rows of the table as last drawn, for moving them
+  var focusMove = null;   // keeps keyboard focus on the arrow that was just used
   var mergeSel = [];      // rows ticked for merging: product ids, or 'g:'+group id
   var expanded = {};      // merged rows currently opened
   var STORE_KEY = 'cheap-basket-live';
@@ -667,6 +674,7 @@ tr.sub td { background: var(--bg); }
       }
     });
     units.forEach(function (u) { u.ids.forEach(function (id) { rows.push(id); }); });
+    lastUnits = units;
 
     function unitPrice(u, s) {
       var pin = u.group && state.pins[u.group] && state.pins[u.group][s.id];
@@ -710,13 +718,22 @@ tr.sub td { background: var(--bg); }
     function isSel(t) { return mergeSel.indexOf(t) !== -1; }
     function cbox(t) { return '<input type="checkbox" class="mg" data-mg="' + esc(t) + '"' + (isSel(t) ? ' checked' : '') + ' aria-label="סמן לאיחוד שורות">'; }
 
+    function mvHtml(ui) {
+      var u = units[ui], tok = u.group ? 'g:' + u.group : u.ids[0];
+      var up = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+      var dn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+      if (units.length < 2) return '';
+      return '<span class="mv"><button type="button" data-mv="up" data-tok="' + esc(tok) + '" aria-label="העבר שורה למעלה" title="העבר למעלה"' + (ui === 0 ? ' disabled' : '') + '>' + up + '</button>' +
+        '<button type="button" data-mv="dn" data-tok="' + esc(tok) + '" aria-label="העבר שורה למטה" title="העבר למטה"' + (ui === units.length - 1 ? ' disabled' : '') + '>' + dn + '</button></span>';
+    }
+
     /* one row for a single product, or a member row inside an opened group */
-    function productRow(pid, g, asSub) {
+    function productRow(pid, g, asSub, mv) {
       var prices = stores.map(function (s) { return getPrice(pid, s); });
       var min = null;
       prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
       var p = productById(pid);
-      var h = '<tr class="' + (g ? 'grp' : '') + (asSub ? ' sub' : '') + '"><td class="prod"><div class="pname">' + (asSub ? '' : cbox(pid)) +
+      var h = '<tr class="' + (g ? 'grp' : '') + (asSub ? ' sub' : '') + '"><td class="prod"><div class="pname">' + (asSub ? '' : (mv || '') + cbox(pid)) +
         '<span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
         '<span class="acts">' +
         (g ? '<button class="keep" type="button" data-keep="' + esc(pid) + '" title="להשאיר רק את המוצר הזה ולהסיר את שאר המוצרים בהשוואה">השאר</button>' : '') +
@@ -745,8 +762,8 @@ tr.sub td { background: var(--bg); }
     }
 
     var anyOpen = false;
-    units.forEach(function (u) {
-      if (!u.group) { body += productRow(u.ids[0], null, false); return; }
+    units.forEach(function (u, ui) {
+      if (!u.group) { body += productRow(u.ids[0], null, false, mvHtml(ui)); return; }
       /* merged group: one row, each store shows the cheapest variant it carries */
       var open = !!expanded[u.group];
       if (open) anyOpen = true;
@@ -756,7 +773,7 @@ tr.sub td { background: var(--bg); }
       prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
       var p0 = productById(u.ids[0]);
       var anyW = u.ids.some(function (id) { return productById(id).w; });
-      body += '<tr class="grp gsum"><td class="prod"><div class="pname">' + cbox('g:' + u.group) +
+      body += '<tr class="grp gsum"><td class="prod"><div class="pname">' + mvHtml(ui) + cbox('g:' + u.group) +
         '<span class="n">' + esc(p0.name) + '<small class="gcount">' + u.ids.length + ' גרסאות' + (anyW ? ' · לפי משקל' : '') + '</small></span>' +
         '<span class="acts">' +
         '<button class="keep" type="button" data-toggle="' + esc(u.group) + '" aria-expanded="' + open + '" title="הצג או הסתר את הגרסאות ובחר אחת להשאיר">' + (open ? 'הסתר' : 'הצג') + '</button>' +
@@ -803,6 +820,13 @@ tr.sub td { background: var(--bg); }
 
     host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
       (anyOpen ? '<p class="grphint" style="padding:8px 12px">בשורה ממוזגת, בכל חנות נספרת בסכום רק הגרסה שבמסגרת, כברירת מחדל הזולה ביותר שם. המספר באדום הוא התוספת אם תבחר בגרסה אחרת. לחיצה על מחיר של גרסה בחנות מסוימת בוחרת אותה לחנות הזו, ולחיצה נוספת מחזירה לבחירה האוטומטית. "השאר" משאיר גרסה אחת.</p>' : '');
+
+    if (focusMove) {
+      var fb = host.querySelector('[data-mv="' + focusMove.dir + '"][data-tok="' + focusMove.tok.replace(/"/g, '\\"') + '"]');
+      if (fb && !fb.disabled) { fb.focus({ preventScroll: true }); fb.scrollIntoView({ block: 'nearest' }); }
+      else { var other = host.querySelector('[data-tok="' + focusMove.tok.replace(/"/g, '\\"') + '"]:not(:disabled)'); if (other) other.focus({ preventScroll: true }); }
+      focusMove = null;
+    }
 
     /* buying every item where it is cheapest, in as many stores as needed */
     var split = 0, splitOk = true;
@@ -951,6 +975,22 @@ tr.sub td { background: var(--bg); }
       var keepId = k.getAttribute('data-keep'), g = state.groups[keepId];
       state.basket = state.basket.filter(function (x) { return x === keepId || state.groups[x] !== g; });
       delete state.groups[keepId];
+      persist(); render();
+      return;
+    }
+    var mvb = e.target.closest('[data-mv]');
+    if (mvb && !mvb.disabled) {
+      var dir = mvb.getAttribute('data-mv'), tok = mvb.getAttribute('data-tok');
+      var at = -1;
+      lastUnits.forEach(function (u, i) { if ((u.group ? 'g:' + u.group : u.ids[0]) === tok) at = i; });
+      var to = dir === 'up' ? at - 1 : at + 1;
+      if (at === -1 || to < 0 || to >= lastUnits.length) return;
+      var order = lastUnits.slice(); var tmp = order[at]; order[at] = order[to]; order[to] = tmp;
+      var next = [];
+      order.forEach(function (u) { u.ids.forEach(function (id) { next.push(id); }); });
+      state.basket.forEach(function (id) { if (next.indexOf(id) === -1) next.push(id); });   // items missing from the data keep a place
+      state.basket = next;
+      focusMove = { dir: dir, tok: tok };
       persist(); render();
       return;
     }
