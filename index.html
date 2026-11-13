@@ -630,6 +630,14 @@ tr.sub td { background: var(--bg); }
 
   /* ---------- Render ---------- */
   function render() {
+    try { renderTable(); }
+    catch (err) {
+      try { console.error(err); } catch (e) {}
+      host.innerHTML = '<div class="empty"><strong>שגיאה בבניית הטבלה</strong>הסל שלך נשמר ולא נמחק. אפשר לרענן את הדף. פרטי השגיאה: ' + esc(String(err && err.message || err)) + '</div>';
+      summary.hidden = true;
+    }
+  }
+  function renderTable() {
     var stores = getStores();
     var ids = basketIds();
     updateStamp();
