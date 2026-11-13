@@ -305,6 +305,15 @@ tr.sub td { background: var(--bg); }
   var mergeSel = [];      // rows ticked for merging: product ids, or 'g:'+group id
   var expanded = {};      // merged rows currently opened
   var STORE_KEY = 'cheap-basket-live';
+  /* Diagnostics: a short event log kept in the browser; shown at the bottom of the page when the address ends with ?debug=1 */
+  var LOG_KEY = 'cheap-basket-log';
+  function dbg(msg) {
+    try {
+      var a = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+      a.push(new Date().toTimeString().slice(0, 8) + ' ' + msg);
+      localStorage.setItem(LOG_KEY, JSON.stringify(a.slice(-60)));
+    } catch (e) {}
+  }
   function cleanGroups() {
     var n = {};
     Object.keys(state.groups).forEach(function (id) {
@@ -328,7 +337,7 @@ tr.sub td { background: var(--bg); }
     state.pins = {};
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
-    if (!saved) return;
+    if (!saved) { dbg('load: nothing saved'); return; }
     if (liveIndex.cities.some(function (c) { return c.name === saved.city; })) state.city = saved.city;
     if (Array.isArray(saved.basket)) {
       state.basket = saved.basket.filter(function (id) { return typeof id === 'string'; }).slice(0, 100);
@@ -352,6 +361,7 @@ tr.sub td { background: var(--bg); }
       });
     }
     cleanGroups();
+    dbg('load: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length + ' (saved basket=' + (saved.basket || []).length + ')');
   }
   /* A product's id can change between data updates. When a saved item is gone, look for the same
      name and size in the current catalog; if exactly one product matches, the item moves to it. */
@@ -393,7 +403,9 @@ tr.sub td { background: var(--bg); }
     Object.keys(state.names).forEach(function (id) { if (state.basket.indexOf(id) === -1) delete state.names[id]; });
     cleanGroups();
     cleanGroups();
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins })); } catch (e) {}
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins })); }
+    catch (e) { dbg('SAVE FAILED: ' + e); try { toast('לא ניתן לשמור את הסל בדפדפן'); } catch (e2) {} return; }
+    dbg('save: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length);
   }
   function basketIds() { return state.basket.filter(function (id) { return !!productById(id); }); }
 
@@ -630,8 +642,9 @@ tr.sub td { background: var(--bg); }
 
   /* ---------- Render ---------- */
   function render() {
-    try { renderTable(); }
+    try { renderTable(); dbg('render: shown=' + basketIds().length + ' of ' + state.basket.length); }
     catch (err) {
+      dbg('RENDER ERROR: ' + (err && err.message));
       try { console.error(err); } catch (e) {}
       host.innerHTML = '<div class="empty"><strong>שגיאה בבניית הטבלה</strong>הסל שלך נשמר ולא נמחק. אפשר לרענן את הדף. פרטי השגיאה: ' + esc(String(err && err.message || err)) + '</div>';
       summary.hidden = true;
@@ -1132,6 +1145,12 @@ tr.sub td { background: var(--bg); }
         if (incomingNotice) { toast(incomingNotice); incomingNotice = ''; }
       });
     }).catch(showFailure);
+  }
+  if (/[?&]debug=1/.test(location.search)) {
+    var pnl = document.createElement('pre');
+    pnl.style.cssText = 'direction:ltr;text-align:left;white-space:pre-wrap;font-size:12px;padding:12px;margin:16px;border:1px solid #888;border-radius:8px';
+    var showLog = function () { try { pnl.textContent = 'Diagnostics (newest last)\n' + JSON.parse(localStorage.getItem(LOG_KEY) || '[]').join('\n'); } catch (e) { pnl.textContent = 'no log: ' + e; } };
+    document.body.appendChild(pnl); showLog(); setInterval(showLog, 1500);
   }
   start();
 })();
