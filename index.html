@@ -1283,8 +1283,8 @@ tr.sub td { background: var(--bg); }
     var cityName = state.city, when = new Date().toLocaleDateString('he-IL');
     var h = '<div class="plist"><h1>רשימת קניות · ' + esc(d.chain) + '</h1><p class="psub">' + esc(d.branch) + ' · ' + esc(cityName) + ' · ' + esc(when) + '</p>' +
       '<table><thead><tr><th class="c">✓</th><th>פריט</th><th class="q">כמות</th>' + (withPrices ? '<th class="n">מחיר</th>' : '') + '</tr></thead><tbody>';
-    d.rows.forEach(function (r) {
-      h += '<tr><td class="c"><span class="box"></span></td><td>' + esc(r.n) + (r.w ? ' <small>(לפי משקל)</small>' : '') + '</td><td class="q">' + r.q + '</td>' +
+    d.rows.forEach(function (r, i) {
+      h += '<tr' + (forFile ? ' class="it" data-i="' + i + '"' : '') + '><td class="c"><span class="box"></span></td><td>' + esc(r.n) + (r.w ? ' <small>(לפי משקל)</small>' : '') + '</td><td class="q">' + r.q + '</td>' +
         (withPrices ? '<td class="n">' + (r.price == null ? '<small>אין במלאי</small>' : fmt(r.price) + (r.q !== 1 ? '<br><small>' + fmt(r.unit) + ' ליח׳</small>' : '')) + '</td>' : '') + '</tr>';
     });
     h += '</tbody>' + (withPrices ? '<tfoot><tr><td></td><td colspan="2">סה״כ' + (d.missing ? ' (חסרים ' + d.missing + ' פריטים בחנות זו)' : '') + '</td><td class="n">' + fmt(d.sum) + '</td></tr></tfoot>' : '') + '</table>' +
@@ -1317,13 +1317,24 @@ tr.sub td { background: var(--bg); }
   });
   $('printSave').addEventListener('click', function () {
     var d = printData[+$('printStore').value]; if (!d) return;
-    var html = '<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>רשימת קניות</title><style>body{margin:16px}' + PRINT_CSS + '</style></head><body>' + listHtml(d, $('printPrices').checked) + '</body></html>';
+    var key = 'shoplist:' + d.label + ':' + state.city + ':' + new Date().toISOString().slice(0, 10);
+    var fileJs = '(function(){var K=' + JSON.stringify(key) + ',done={};try{done=JSON.parse(localStorage.getItem(K)||"{}")}catch(e){}' +
+      'var rows=[].slice.call(document.querySelectorAll("tr.it")),bar=document.getElementById("cnt");' +
+      'function paint(){var n=0;rows.forEach(function(r){var on=!!done[r.dataset.i];r.classList.toggle("done",on);if(on)n++;});bar.textContent="סומנו "+n+" מתוך "+rows.length;}' +
+      'rows.forEach(function(r){r.addEventListener("click",function(){var i=r.dataset.i;if(done[i])delete done[i];else done[i]=1;try{localStorage.setItem(K,JSON.stringify(done))}catch(e){}paint();});});' +
+      'document.getElementById("clr").addEventListener("click",function(){done={};try{localStorage.removeItem(K)}catch(e){}paint();});paint();})();';
+    var fileCss = 'body{margin:16px}.tools{display:flex;gap:12px;align-items:center;margin:0 0 12px;font-family:Arial,sans-serif}.tools button{font:inherit;padding:8px 14px;border:1px solid #333;border-radius:999px;background:#fff}' +
+      '.plist tr.it{cursor:pointer}.plist tr.it.done td{color:#888;text-decoration:line-through;background:#eef7ee}.plist tr.it.done .box{background:#1f7a46;border-color:#1f7a46;position:relative}' +
+      '.plist tr.it.done .box::after{content:"";position:absolute;left:3px;top:0;width:4px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}' +
+      '@media print{.tools{display:none}}';
+    var html = '<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>רשימת קניות</title><style>' + fileCss + PRINT_CSS + '</style></head><body>' +
+      '<div class="tools"><span id="cnt"></span><button type="button" id="clr">נקה סימונים</button></div>' + listHtml(d, $('printPrices').checked, true) + '<script>' + fileJs.replace(/<\//g, '<\\/') + '</' + 'script></body></html>';
     var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), a = document.createElement('a');
     a.href = url; a.download = 'רשימת-קניות-' + d.chain + '.html';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
     if (pdlg.close) pdlg.close();
-    toast('הקובץ נשמר. פתח אותו בדפדפן והדפס, או שמור כ-PDF');
+    toast('הקובץ נשמר. בפתיחה בדפדפן אפשר לסמן פריטים בלחיצה, או להדפיס');
   });
   $('prune').addEventListener('click', function () {
     var un = unusedMembers();
