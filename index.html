@@ -943,7 +943,9 @@ tr.sub td { background: var(--bg); }
       mergeSel.forEach(function (t) { if (state.off[t]) selOff++; else selOn++; });
       mb.hidden = false;
       mb.innerHTML = '<span>סומנו ' + mergeSel.length + (mergeSel.length === 1 ? ' שורה' : ' שורות') + '</span>' +
-        (mergeSel.length >= 2 ? '<button type="button" class="go" data-merge="1">אחד לשורה אחת</button>' : '') +
+        (mergeSel.length >= 2 ? '<button type="button" class="go" data-merge="1">אחד לשורה אחת</button><button type="button" class="go" data-mvsel="gather" title="מרכז את השורות המסומנות ברצף, אחת אחרי השנייה, בלי לאחד אותן">סדר קבוצה</button>' : '') +
+        '<button type="button" class="go" data-mvsel="up" title="הזז את המסומנות שורה אחת למעלה">▲ למעלה</button><button type="button" class="go" data-mvsel="down" title="הזז את המסומנות שורה אחת למטה">▼ למטה</button>' +
+        '<button type="button" class="go" data-mvsel="top">לראש</button><button type="button" class="go" data-mvsel="bottom">לסוף</button>' +
         (selOn ? '<button type="button" class="go" data-hide="1">הסתר מהסיכום</button>' : '') +
         (selOff ? '<button type="button" class="go" data-unhide="1">החזר לסיכום</button>' : '') +
         '<button type="button" class="no" data-mergecancel="1">בטל</button>';
@@ -967,6 +969,11 @@ tr.sub td { background: var(--bg); }
     host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
       (anyOpen ? '<p class="grphint" style="padding:8px 12px">בשורה ממוזגת, בכל חנות נספרת בסכום רק הגרסה שבמסגרת, כברירת מחדל הזולה ביותר שם. המספר באדום הוא התוספת אם תבחר בגרסה אחרת. לחיצה על מחיר של גרסה בחנות מסוימת בוחרת אותה לחנות הזו, ולחיצה נוספת מחזירה לבחירה האוטומטית. "השאר" משאיר גרסה אחת.</p>' : '');
 
+    if (focusSel) {
+      focusSel = false;
+      var fc = host.querySelector('input.mg:checked');
+      if (fc && fc.scrollIntoView) fc.scrollIntoView({ block: 'nearest' });
+    }
     if (focusQ !== null) {
       var qi = host.querySelector('input[data-q="' + focusQ.replace(/"/g, '\\"') + '"]');
       if (qi) { qi.focus({ preventScroll: true }); try { var ln = qi.value.length; qi.type = 'text'; qi.setSelectionRange(ln, ln); qi.type = 'number'; } catch (e2) {} }
@@ -1140,6 +1147,7 @@ tr.sub td { background: var(--bg); }
       var at = -1;
       lastUnits.forEach(function (u, i) { if ((u.group ? 'g:' + u.group : u.ids[0]) === tok) at = i; });
       var to = dir === 'up' ? at - 1 : at + 1;
+      while (at !== -1 && to >= 0 && to < lastUnits.length && hiddenRow(lastUnits[to])) to += dir === 'up' ? -1 : 1;
       if (at === -1 || to < 0 || to >= lastUnits.length) return;
       var order = lastUnits.slice(); var tmp = order[at]; order[at] = order[to]; order[to] = tmp;
       var next = [];
@@ -1196,6 +1204,47 @@ tr.sub td { background: var(--bg); }
     delete state.names[id];
     persist(); render();
   });
+  /* reorder units (single rows / merged rows) and rebuild the basket order from them */
+  function applyOrder(order) {
+    var next = [];
+    order.forEach(function (u) { u.ids.forEach(function (id) { next.push(id); }); });
+    state.basket.forEach(function (id) { if (next.indexOf(id) === -1) next.push(id); });   // items missing from the data keep a place
+    state.basket = next;
+  }
+  function hiddenRow(u) { return u.off && state.hideOff; }
+  function moveSelected(how) {
+    var sel = {}; mergeSel.forEach(function (t) { sel[t] = 1; });
+    var order = lastUnits.slice(), n = order.length, i, j, u;
+    var picked = order.filter(function (x) { return sel[x.tok]; });
+    if (!picked.length) return false;
+    var before = order.map(function (x) { return x.tok; }).join('|');
+    if (how === 'up') {
+      for (i = 0; i < n; i++) {
+        if (!sel[order[i].tok]) continue;
+        j = i - 1; while (j >= 0 && hiddenRow(order[j]) && !sel[order[j].tok]) j--;
+        if (j >= 0 && !sel[order[j].tok]) { u = order.splice(i, 1)[0]; order.splice(j, 0, u); }
+      }
+    } else if (how === 'down') {
+      for (i = n - 1; i >= 0; i--) {
+        if (!sel[order[i].tok]) continue;
+        j = i + 1; while (j < n && hiddenRow(order[j]) && !sel[order[j].tok]) j++;
+        if (j < n && !sel[order[j].tok]) { u = order.splice(i, 1)[0]; order.splice(j, 0, u); }
+      }
+    } else if (how === 'top') {
+      order = picked.concat(order.filter(function (x) { return !sel[x.tok]; }));
+    } else if (how === 'bottom') {
+      order = order.filter(function (x) { return !sel[x.tok]; }).concat(picked);
+    } else if (how === 'gather') {
+      var first = -1; order.forEach(function (x, k) { if (first === -1 && sel[x.tok]) first = k; });
+      var rest = order.filter(function (x) { return !sel[x.tok]; });
+      var lead = order.slice(0, first).filter(function (x) { return !sel[x.tok]; }).length;
+      order = rest.slice(0, lead).concat(picked, rest.slice(lead));
+    }
+    if (order.map(function (x) { return x.tok; }).join('|') === before) return false;
+    applyOrder(order);
+    return true;
+  }
+  var focusSel = false;
   var qTimer = null, focusQ = null;
   host.addEventListener('input', function (e) {
     var el = e.target.closest && e.target.closest('input[data-q]');
@@ -1225,6 +1274,8 @@ tr.sub td { background: var(--bg); }
     state.off = {}; state.hideOff = false; persist(); render();
   });
   $('mergebar').addEventListener('click', function (e) {
+    var msb = e.target.closest('[data-mvsel]');
+    if (msb) { if (moveSelected(msb.getAttribute('data-mvsel'))) { focusSel = true; persist(); render(); } return; }
     if (e.target.closest('[data-mergecancel]')) { mergeSel = []; render(); return; }
     var hb = e.target.closest('[data-hide]'), ub = e.target.closest('[data-unhide]');
     if (hb || ub) {
