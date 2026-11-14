@@ -180,6 +180,9 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   #printarea { display: block !important; color: #000; background: #fff; }
   @page { margin: 12mm; }
 }
+th.qty, td.qty { width: 74px; min-width: 74px; padding-inline: 4px; }
+.qin { width: 58px; min-height: 36px; text-align: center; font: inherit; font-weight: 600; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 2px 4px; }
+.each { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
 tr.off td { opacity: .42; }
 tr.off .price, tr.off td.na { text-decoration: line-through; }
 tr.off td.prod .n::after { content: 'מוסתר מהסיכום'; display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
@@ -335,7 +338,7 @@ tr.sub td { background: var(--bg); }
   /* ---------- State ---------- */
   /* groups: product id -> group id. Products in one group are alternatives to each other,
      and only the cheapest of them in each store counts towards that store's basket total. */
-  var state = { city: '', basket: [], groups: {}, names: {}, pins: {}, off: {}, hideOff: false };   // off: rows hidden from the total (group id as 'g:'+id, or product id)   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
+  var state = { city: '', basket: [], groups: {}, names: {}, pins: {}, off: {}, qty: {}, hideOff: false };   // off: rows hidden from the total (group id as 'g:'+id, or product id)   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
   var lastUnits = [];     // the rows of the table as last drawn, for moving them
   var printData = [];
   var focusMove = null;   // keeps keyboard focus on the arrow that was just used
@@ -352,6 +355,8 @@ tr.sub td { background: var(--bg); }
       localStorage.setItem(LOG_KEY, JSON.stringify(a.slice(-60)));
     } catch (e) {}
   }
+  function cleanQty(v) { var n = Math.round(parseFloat(v) * 100) / 100; return n > 0 && n <= 999 ? n : 1; }
+  function tokenAlive(t) { return t.indexOf('g:') === 0 ? Object.keys(state.groups).some(function (id) { return state.groups[id] === t.slice(2); }) : state.basket.indexOf(t) !== -1; }
   function cleanGroups() {
     var n = {};
     Object.keys(state.groups).forEach(function (id) {
@@ -359,10 +364,8 @@ tr.sub td { background: var(--bg); }
       var g = state.groups[id]; n[g] = (n[g] || 0) + 1;
     });
     Object.keys(state.groups).forEach(function (id) { if (n[state.groups[id]] < 2) delete state.groups[id]; });
-    Object.keys(state.off).forEach(function (t) {
-      var ok = t.indexOf('g:') === 0 ? Object.keys(state.groups).some(function (id) { return state.groups[id] === t.slice(2); }) : state.basket.indexOf(t) !== -1;
-      if (!ok) delete state.off[t];
-    });
+    Object.keys(state.off).forEach(function (t) { if (!tokenAlive(t)) delete state.off[t]; });
+    Object.keys(state.qty).forEach(function (t) { if (!tokenAlive(t)) delete state.qty[t]; });
     Object.keys(state.pins).forEach(function (g) {
       Object.keys(state.pins[g]).forEach(function (sid) {
         var pid = state.pins[g][sid];
@@ -379,6 +382,7 @@ tr.sub td { background: var(--bg); }
     state.pins = {};
     state.off = {};
     state.hideOff = false;
+    state.qty = {};
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved) { dbg('load: nothing saved'); return; }
@@ -406,6 +410,7 @@ tr.sub td { background: var(--bg); }
     }
     if (saved.off && typeof saved.off === 'object') Object.keys(saved.off).forEach(function (t) { if (saved.off[t]) state.off[t] = 1; });
     state.hideOff = !!saved.hideOff;
+    if (saved.qty && typeof saved.qty === 'object') Object.keys(saved.qty).forEach(function (t) { var n = cleanQty(saved.qty[t]); if (n !== 1) state.qty[t] = n; });
     cleanGroups();
     dbg('load: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length + ' (saved basket=' + (saved.basket || []).length + ')');
   }
@@ -436,6 +441,8 @@ tr.sub td { background: var(--bg); }
         var at = state.basket.indexOf(id);
         state.basket[at] = hit[0];
         if (state.groups[id]) { state.groups[hit[0]] = state.groups[id]; delete state.groups[id]; }
+        if (state.off[id]) { state.off[hit[0]] = 1; delete state.off[id]; }
+        if (state.qty[id]) { state.qty[hit[0]] = state.qty[id]; delete state.qty[id]; }
         Object.keys(state.pins).forEach(function (g) { Object.keys(state.pins[g]).forEach(function (sid) { if (state.pins[g][sid] === id) state.pins[g][sid] = hit[0]; }); });
         state.names[hit[0]] = nm; delete state.names[id];
       }
@@ -449,7 +456,7 @@ tr.sub td { background: var(--bg); }
     Object.keys(state.names).forEach(function (id) { if (state.basket.indexOf(id) === -1) delete state.names[id]; });
     cleanGroups();
     cleanGroups();
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins, off: state.off, hideOff: state.hideOff })); }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins, off: state.off, qty: state.qty, hideOff: state.hideOff })); }
     catch (e) { dbg('SAVE FAILED: ' + e); try { toast('לא ניתן לשמור את הסל בדפדפן'); } catch (e2) {} return; }
     dbg('save: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length);
   }
@@ -507,7 +514,17 @@ tr.sub td { background: var(--bg); }
       var nm = state.names[id];
       if (nm && id.indexOf('n:') === 0) names[i] = nm.s ? [nm.n, nm.s] : [nm.n];
     });
+    var offT = [], qty = {};
+    var tk = function (t) {
+      if (t.indexOf('g:') === 0) return (t.slice(2) in gmap) ? 'g' + gmap[t.slice(2)] : null;
+      var at = state.basket.indexOf(t); return at === -1 ? null : at;
+    };
+    Object.keys(state.off).forEach(function (t) { var k = tk(t); if (k !== null) offT.push(k); });
+    Object.keys(state.qty).forEach(function (t) { var k = tk(t); if (k !== null) qty[k] = state.qty[t]; });
     var o = { v: 2, c: state.city, b: state.basket };
+    if (offT.length) o.o = offT;
+    if (Object.keys(qty).length) o.q = qty;
+    if (state.hideOff && offT.length) o.h = 1;
     if (Object.keys(g).length) o.g = g;
     if (Object.keys(names).length) o.n = names;
     if (Object.keys(pins).length) o.p = pins;
@@ -578,17 +595,31 @@ tr.sub td { background: var(--bg); }
           if (has(pid)) (inc.pins[gid] = inc.pins[gid] || {})[sid] = pid;
         });
       });
+      inc.off = []; inc.qty = []; inc.hide = false;
+      if (v2) {
+        var tokOf = function (k) {
+          if (typeof k === 'string' && /^g\d+$/.test(k)) return { g: k };
+          var id = inc.basket[+k]; return has(id) ? { id: id } : null;
+        };
+        (Array.isArray(o.o) ? o.o : []).forEach(function (k) { var t = tokOf(k); if (t) inc.off.push(t); });
+        if (o.q && typeof o.q === 'object') Object.keys(o.q).forEach(function (k) { var t = tokOf(k), n = cleanQty(o.q[k]); if (t && n !== 1) { t.q = n; inc.qty.push(t); } });
+        inc.hide = o.h === 1;
+      }
       return inc.basket.length ? inc : null;
     }).catch(function () { return null; });
   }
   function applyIncoming(inc, mode) {
-    if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; state.off = {}; state.hideOff = false; }
+    if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; state.off = {}; state.qty = {}; state.hideOff = false; }
     var ns = 'i' + Date.now().toString(36);   // keeps imported group ids apart from this device's own
     var rename = function (g) { return ns + g; };
     inc.basket.forEach(function (id) { if (state.basket.indexOf(id) === -1 && state.basket.length < MAX_BASKET) state.basket.push(id); });
     Object.keys(inc.groups).forEach(function (id) { state.groups[id] = rename(inc.groups[id]); });
     Object.keys(inc.names).forEach(function (id) { state.names[id] = inc.names[id]; });
     Object.keys(inc.pins).forEach(function (g) { state.pins[rename(g)] = Object.assign(state.pins[rename(g)] || {}, inc.pins[g]); });
+    var tokName = function (t) { return t.g ? 'g:' + rename(t.g) : t.id; };
+    (inc.off || []).forEach(function (t) { state.off[tokName(t)] = 1; });
+    (inc.qty || []).forEach(function (t) { state.qty[tokName(t)] = t.q; });
+    if (mode === 'replace') state.hideOff = !!inc.hide;
     if (mode === 'replace' && liveIndex.cities.some(function (c) { return c.name === inc.city; })) state.city = inc.city;
   }
   var toastTimer = null, pendingImport = null, incomingNotice = '';
@@ -766,7 +797,7 @@ tr.sub td { background: var(--bg); }
       }
     });
     units.forEach(function (u) { u.ids.forEach(function (id) { rows.push(id); }); });
-    units.forEach(function (u) { u.tok = u.group ? 'g:' + u.group : u.ids[0]; u.off = !!state.off[u.tok]; });
+    units.forEach(function (u) { u.tok = u.group ? 'g:' + u.group : u.ids[0]; u.off = !!state.off[u.tok]; u.q = state.qty[u.tok] || 1; });
     var activeUnits = units.filter(function (u) { return !u.off; }).length, offUnits = units.length - activeUnits;
     lastUnits = units;
 
@@ -791,7 +822,7 @@ tr.sub td { background: var(--bg); }
         var up = unitPrice(u, s);
         if (u.group) counted[u.group] = up;
         if (u.off) return;
-        if (up.price == null) missing++; else sum += up.price;
+        if (up.price == null) missing++; else sum += up.price * u.q;
       });
       return { s: s, sum: sum, missing: missing, counted: counted };
     });
@@ -805,12 +836,12 @@ tr.sub td { background: var(--bg); }
         if (u.off) return;
         var up = unitPrice(u, t.s), p = up.id && productById(up.id), p0 = productById(u.ids[0]);
         var nm = p ? p.name + (p.s ? ' ' + p.s : '') : p0.name;
-        rowsP.push({ n: nm, price: up.price, w: !!(p && p.w), many: u.ids.length > 1 ? u.ids.length : 0 });
+        rowsP.push({ n: nm, q: u.q, unit: up.price, price: up.price == null ? null : up.price * u.q, w: !!(p && p.w), many: u.ids.length > 1 ? u.ids.length : 0 });
       });
       return { label: t.s.chain.name + ' · ' + t.s.branch, chain: t.s.chain.name, branch: t.s.branch, rows: rowsP, sum: t.sum, missing: t.missing };
     });
 
-    var head = '<th class="prod" scope="col">מוצר</th>';
+    var head = '<th class="prod" scope="col">מוצר</th><th class="qty" scope="col">כמות</th>';
     stores.forEach(function (s) {
       head += '<th scope="col"><div class="chain">' + esc(s.chain.name) + '</div><div class="branch">' + esc(s.branch) + '</div>' +
         (s.stale ? '<span class="miss" title="לא התקבל עדכון חדש מהרשת, מוצגים נתונים קודמים">נתונים ישנים</span>' : '') + '</th>';
@@ -833,8 +864,12 @@ tr.sub td { background: var(--bg); }
         '<button type="button" data-mv="dn" data-tok="' + esc(tok) + '" aria-label="העבר שורה למטה" title="העבר למטה"' + (ui === units.length - 1 ? ' disabled' : '') + '>' + dn + '</button></span>';
     }
 
+    function qtyCell(tok, q) {
+      return '<td class="qty"><input type="number" class="qin" inputmode="decimal" min="0.01" max="999" step="any" value="' + q + '" data-q="' + esc(tok) + '" aria-label="כמות"></td>';
+    }
     /* one row for a single product, or a member row inside an opened group */
-    function productRow(pid, g, asSub, mv, off) {
+    function productRow(pid, g, asSub, mv, off, q) {
+      q = q || 1;
       var prices = stores.map(function (s) { return getPrice(pid, s); });
       var min = null;
       prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
@@ -843,7 +878,8 @@ tr.sub td { background: var(--bg); }
         '<span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
         '<span class="acts">' +
         (g ? '<button class="keep" type="button" data-keep="' + esc(pid) + '" title="להשאיר רק את המוצר הזה ולהסיר את שאר המוצרים בהשוואה">השאר</button>' : '') +
-        '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' + xsvg + '</button></span></div></td>';
+        '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' + xsvg + '</button></span></div></td>' +
+        (asSub ? '<td class="qty"></td>' : qtyCell(pid, q));
       prices.forEach(function (pr, i) {
         if (pr == null) { h += '<td class="na">אין במלאי</td>'; return; }
         var cls = 'price', extra = '', attr = '';
@@ -856,13 +892,13 @@ tr.sub td { background: var(--bg); }
           } else {
             attr += ' title="לחיצה בוחרת את הגרסה הזו לחנות הזו"';
             cls += ' alt';
-            if (c && pr - c.price >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמוצר הזול בהשוואה, באותה חנות">+' + fmt(pr - c.price) + '</span>';
+            if (c && pr - c.price >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמוצר הזול בהשוואה, באותה חנות">+' + fmt((pr - c.price) * q) + '</span>';
           }
         } else {
           if (pr === min) cls += ' best';
-          else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt(pr - min) + '</span>';
+          else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt((pr - min) * q) + '</span>';
         }
-        h += '<td class="' + cls + '"' + attr + '>' + fmt(pr) + extra + '</td>';
+        h += '<td class="' + cls + '"' + attr + '>' + fmt(pr * q) + (q !== 1 && !asSub ? '<span class="each">' + fmt(pr) + ' ליח׳</span>' : (q !== 1 ? '<span class="each">' + fmt(pr) + ' ליח׳</span>' : '')) + extra + '</td>';
       });
       return h + '</tr>';
     }
@@ -870,7 +906,7 @@ tr.sub td { background: var(--bg); }
     var anyOpen = false;
     units.forEach(function (u, ui) {
       if (u.off && state.hideOff) return;
-      if (!u.group) { body += productRow(u.ids[0], null, false, mvHtml(ui), u.off); return; }
+      if (!u.group) { body += productRow(u.ids[0], null, false, mvHtml(ui), u.off, u.q); return; }
       /* merged group: one row, each store shows the cheapest variant it carries */
       var open = !!expanded[u.group];
       if (open) anyOpen = true;
@@ -885,19 +921,19 @@ tr.sub td { background: var(--bg); }
         '<span class="acts">' +
         '<button class="keep" type="button" data-toggle="' + esc(u.group) + '" aria-expanded="' + open + '" title="הצג או הסתר את הגרסאות ובחר אחת להשאיר">' + (open ? 'הסתר' : 'הצג') + '</button>' +
         '<button class="keep" type="button" data-split="' + esc(u.group) + '" title="פרק לשורות נפרדות">פרק</button>' +
-        '<button class="rm" type="button" data-rmgroup="' + esc(u.group) + '" aria-label="הסר את כל הגרסאות מהסל">' + xsvg + '</button></span></div></td>';
+        '<button class="rm" type="button" data-rmgroup="' + esc(u.group) + '" aria-label="הסר את כל הגרסאות מהסל">' + xsvg + '</button></span></div></td>' + qtyCell('g:' + u.group, u.q);
       prices.forEach(function (pr, i) {
         if (pr == null) { body += '<td class="na">אין במלאי</td>'; return; }
         var cls = 'price', extra = '';
         if (pr === min) cls += ' best';
-        else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt(pr - min) + '</span>';
+        else if (i === 0 && pr - min >= 0.005) extra = '<span class="dx" dir="ltr" title="כמה יקר יותר מהמחיר הזול ביותר בשורה, בחנות אחרת">+' + fmt((pr - min) * u.q) + '</span>';
         var who = productById(ups[i].id);
         var desc = who ? '<span class="orig" title="' + esc(who.name) + '">' + esc(who.name) + (ups[i].pinned ? ' · ידני' : '') + '</span>' : '';
-        body += '<td class="' + cls + '">' + fmt(pr) + extra + desc + '</td>';
+        body += '<td class="' + cls + '">' + fmt(pr * u.q) + (u.q !== 1 ? '<span class="each">' + fmt(pr) + ' ליח׳</span>' : '') + extra + desc + '</td>';
       });
       body += '</tr>';
       if (open) {
-        u.ids.forEach(function (id) { body += productRow(id, u.group, true, '', u.off); });
+        u.ids.forEach(function (id) { body += productRow(id, u.group, true, '', u.off, u.q); });
       }
     });
 
@@ -920,7 +956,7 @@ tr.sub td { background: var(--bg); }
       if (worst == null || t.sum > worst) worst = t.sum;
     });
 
-    var foot = '<td class="prod">סה״כ הסל</td>';
+    var foot = '<td class="prod">סה״כ הסל</td><td class="qty"></td>';
     totals.forEach(function (t, i) {
       var isBest = i === bestIdx;
       foot += '<td class="' + (isBest ? 'best' : '') + '"><span class="tot">' + fmt(t.sum) + '</span>' +
@@ -931,6 +967,11 @@ tr.sub td { background: var(--bg); }
     host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
       (anyOpen ? '<p class="grphint" style="padding:8px 12px">בשורה ממוזגת, בכל חנות נספרת בסכום רק הגרסה שבמסגרת, כברירת מחדל הזולה ביותר שם. המספר באדום הוא התוספת אם תבחר בגרסה אחרת. לחיצה על מחיר של גרסה בחנות מסוימת בוחרת אותה לחנות הזו, ולחיצה נוספת מחזירה לבחירה האוטומטית. "השאר" משאיר גרסה אחת.</p>' : '');
 
+    if (focusQ !== null) {
+      var qi = host.querySelector('input[data-q="' + focusQ.replace(/"/g, '\\"') + '"]');
+      if (qi) { qi.focus({ preventScroll: true }); try { var ln = qi.value.length; qi.type = 'text'; qi.setSelectionRange(ln, ln); qi.type = 'number'; } catch (e2) {} }
+      focusQ = null;
+    }
     if (focusMove) {
       var fb = host.querySelector('[data-mv="' + focusMove.dir + '"][data-tok="' + focusMove.tok.replace(/"/g, '\\"') + '"]');
       if (fb && !fb.disabled) { fb.focus({ preventScroll: true }); fb.scrollIntoView({ block: 'nearest' }); }
@@ -944,7 +985,7 @@ tr.sub td { background: var(--bg); }
       if (u.off) return;
       var m = null;
       stores.forEach(function (s) { var up = unitPrice(u, s); if (up.price != null && (m == null || up.price < m)) m = up.price; });
-      if (m == null) splitOk = false; else split += m;
+      if (m == null) splitOk = false; else split += m * u.q;
     });
 
     var offNote = offUnits ? '<span class="txt offnote">' + offUnits + (offUnits === 1 ? ' שורה מוסתרת' : ' שורות מוסתרות') + ' מהסיכום' + (state.hideOff ? ' (לא מוצגות בטבלה)' : '') + '<button type="button" data-toggleoff="1">' + (state.hideOff ? 'הצג מוסתרות' : 'החבא לגמרי') + '</button><button type="button" data-showall="1">החזר הכל</button></span>' : '';
@@ -1155,6 +1196,29 @@ tr.sub td { background: var(--bg); }
     delete state.names[id];
     persist(); render();
   });
+  var qTimer = null, focusQ = null;
+  host.addEventListener('input', function (e) {
+    var el = e.target.closest && e.target.closest('input[data-q]');
+    if (!el) return;
+    clearTimeout(qTimer);
+    qTimer = setTimeout(function () {
+      var t = el.getAttribute('data-q'), raw = parseFloat(el.value);
+      if (!(raw > 0)) return;           // empty or invalid while typing: wait
+      var n = cleanQty(raw);
+      if ((state.qty[t] || 1) === n) return;
+      if (n === 1) delete state.qty[t]; else state.qty[t] = n;
+      focusQ = t; persist(); render();
+    }, 450);
+  });
+  host.addEventListener('change', function (e) {
+    var el = e.target.closest && e.target.closest('input[data-q]');
+    if (!el) return;
+    clearTimeout(qTimer);
+    var t = el.getAttribute('data-q'), n = cleanQty(el.value);
+    if ((state.qty[t] || 1) === n) return;   // already applied (also stops a re-render while the table is being rebuilt)
+    if (n === 1) delete state.qty[t]; else state.qty[t] = n;
+    persist(); render();
+  });
   summary.addEventListener('click', function (e) {
     if (e.target.closest('[data-toggleoff]')) { state.hideOff = !state.hideOff; mergeSel = []; persist(); render(); return; }
     if (!e.target.closest('[data-showall]')) return;
@@ -1218,18 +1282,18 @@ tr.sub td { background: var(--bg); }
   function listHtml(d, withPrices, forFile) {
     var cityName = state.city, when = new Date().toLocaleDateString('he-IL');
     var h = '<div class="plist"><h1>רשימת קניות · ' + esc(d.chain) + '</h1><p class="psub">' + esc(d.branch) + ' · ' + esc(cityName) + ' · ' + esc(when) + '</p>' +
-      '<table><thead><tr><th class="c">✓</th><th>פריט</th>' + (withPrices ? '<th class="n">מחיר</th>' : '') + '</tr></thead><tbody>';
+      '<table><thead><tr><th class="c">✓</th><th>פריט</th><th class="q">כמות</th>' + (withPrices ? '<th class="n">מחיר</th>' : '') + '</tr></thead><tbody>';
     d.rows.forEach(function (r) {
-      h += '<tr><td class="c"><span class="box"></span></td><td>' + esc(r.n) + (r.w ? ' <small>(לפי משקל)</small>' : '') + '</td>' +
-        (withPrices ? '<td class="n">' + (r.price == null ? '<small>אין במלאי</small>' : fmt(r.price)) + '</td>' : '') + '</tr>';
+      h += '<tr><td class="c"><span class="box"></span></td><td>' + esc(r.n) + (r.w ? ' <small>(לפי משקל)</small>' : '') + '</td><td class="q">' + r.q + '</td>' +
+        (withPrices ? '<td class="n">' + (r.price == null ? '<small>אין במלאי</small>' : fmt(r.price) + (r.q !== 1 ? '<br><small>' + fmt(r.unit) + ' ליח׳</small>' : '')) + '</td>' : '') + '</tr>';
     });
-    h += '</tbody>' + (withPrices ? '<tfoot><tr><td></td><td>סה״כ' + (d.missing ? ' (חסרים ' + d.missing + ' פריטים בחנות זו)' : '') + '</td><td class="n">' + fmt(d.sum) + '</td></tr></tfoot>' : '') + '</table>' +
+    h += '</tbody>' + (withPrices ? '<tfoot><tr><td></td><td colspan="2">סה״כ' + (d.missing ? ' (חסרים ' + d.missing + ' פריטים בחנות זו)' : '') + '</td><td class="n">' + fmt(d.sum) + '</td></tr></tfoot>' : '') + '</table>' +
       '<p class="pfoot">המחירים מבוססים על קבצי שקיפות מחירים, עשויים להשתנות בסניף.</p></div>';
     return h;
   }
   var PRINT_CSS = '.plist{font-family:Arial,Helvetica,sans-serif;color:#000;direction:rtl}.plist h1{font-size:22px;margin:0 0 4px}.psub{margin:0 0 14px;color:#444}' +
     '.plist table{width:100%;border-collapse:collapse}.plist th,.plist td{border-bottom:1px solid #bbb;padding:7px 6px;text-align:right;font-size:15px}' +
-    '.plist th{border-bottom:2px solid #000}.plist .c{width:28px;text-align:center}.plist .n{text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums}' +
+    '.plist th{border-bottom:2px solid #000}.plist .c{width:28px;text-align:center}.plist .q{width:56px;text-align:center;font-weight:700}.plist .n{text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums}' +
     '.plist tfoot td{font-weight:700;border-top:2px solid #000;border-bottom:0}.plist .box{display:inline-block;width:14px;height:14px;border:1.5px solid #000;border-radius:3px}' +
     '.plist small{color:#555}.pfoot{margin-top:14px;font-size:12px;color:#555}';
   var printStyle = document.createElement('style');
