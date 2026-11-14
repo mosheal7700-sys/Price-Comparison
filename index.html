@@ -49,7 +49,7 @@ body {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.app { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.app { max-width: 1560px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
@@ -166,6 +166,25 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 .pickzone { flex: none; align-self: stretch; display: flex; align-items: center; justify-content: center; min-width: 52px; margin-block: -10px; margin-inline: -10px 0; cursor: pointer; }
 .pick { flex: none; width: 28px; height: 28px; accent-color: var(--accent); margin: 0; cursor: pointer; }
 .pickhint { font-size: 12px; color: var(--muted); }
+#printarea { display: none; }
+.printdlg { border: 1px solid var(--line, #ccc); border-radius: 16px; padding: 20px; max-width: 420px; width: calc(100% - 32px); background: var(--bg); color: var(--fg); }
+.printdlg::backdrop { background: rgba(0,0,0,.4); }
+.printdlg h2 { margin: 0 0 12px; font-size: 18px; }
+.printdlg label { display: block; font-weight: 600; margin-bottom: 4px; }
+.printdlg select { width: 100%; min-height: 44px; margin-bottom: 12px; font: inherit; }
+.printdlg .chk { display: flex; gap: 8px; align-items: center; font-weight: 500; margin-bottom: 12px; }
+.pdnote { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.pdbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+@media print {
+  body > *:not(#printarea) { display: none !important; }
+  #printarea { display: block !important; color: #000; background: #fff; }
+  @page { margin: 12mm; }
+}
+tr.off td { opacity: .42; }
+tr.off .price, tr.off td.na { text-decoration: line-through; }
+tr.off td.prod .n::after { content: 'מוסתר מהסיכום'; display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
+.offnote { display: block; font-size: 13px; }
+.offnote button { margin-inline-start: 8px; padding: 2px 12px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 600; cursor: pointer; }
 tr.grp td.prod { box-shadow: inset -3px 0 0 var(--accent); }
 td.counted { font-weight: 700; box-shadow: inset 0 0 0 2px var(--accent); }
 td.alt { color: var(--muted); }
@@ -216,9 +235,25 @@ tr.sub td { background: var(--bg); }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2"/></svg>
         <span>העבר סל</span>
       </button>
+      <button class="btn ghost" id="printbtn" type="button" hidden title="הדפסה או שמירה של רשימת הקניות לחנות שתבחר"><span>רשימת קניות להדפסה</span></button>
       <button class="btn ghost" id="prune" type="button" hidden title="מסיר משורות ממוזגות את הפריטים שלא הזולים באף חנות ולא נבחרו ידנית"><span></span></button>
     </div>
   </header>
+  <dialog id="printdlg" class="printdlg">
+    <form method="dialog" id="printform">
+      <h2>רשימת קניות להדפסה</h2>
+      <label for="printStore">חנות (העמודה שתודפס)</label>
+      <select id="printStore"></select>
+      <label class="chk"><input type="checkbox" id="printPrices" checked> הצג מחירים וסה״כ</label>
+      <p class="pdnote" id="printNote"></p>
+      <div class="pdbtns">
+        <button type="button" class="btn" id="printGo">הדפס</button>
+        <button type="button" class="btn ghost" id="printSave">שמור כקובץ</button>
+        <button type="submit" class="btn ghost" value="close">סגור</button>
+      </div>
+    </form>
+  </dialog>
+  <div id="printarea" aria-hidden="true"></div>
   <div class="importbar" id="importbar" hidden></div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
@@ -300,8 +335,9 @@ tr.sub td { background: var(--bg); }
   /* ---------- State ---------- */
   /* groups: product id -> group id. Products in one group are alternatives to each other,
      and only the cheapest of them in each store counts towards that store's basket total. */
-  var state = { city: '', basket: [], groups: {}, names: {}, pins: {} };   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
+  var state = { city: '', basket: [], groups: {}, names: {}, pins: {}, off: {}, hideOff: false };   // off: rows hidden from the total (group id as 'g:'+id, or product id)   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
   var lastUnits = [];     // the rows of the table as last drawn, for moving them
+  var printData = [];
   var focusMove = null;   // keeps keyboard focus on the arrow that was just used
   var mergeSel = [];      // rows ticked for merging: product ids, or 'g:'+group id
   var expanded = {};      // merged rows currently opened
@@ -323,6 +359,10 @@ tr.sub td { background: var(--bg); }
       var g = state.groups[id]; n[g] = (n[g] || 0) + 1;
     });
     Object.keys(state.groups).forEach(function (id) { if (n[state.groups[id]] < 2) delete state.groups[id]; });
+    Object.keys(state.off).forEach(function (t) {
+      var ok = t.indexOf('g:') === 0 ? Object.keys(state.groups).some(function (id) { return state.groups[id] === t.slice(2); }) : state.basket.indexOf(t) !== -1;
+      if (!ok) delete state.off[t];
+    });
     Object.keys(state.pins).forEach(function (g) {
       Object.keys(state.pins[g]).forEach(function (sid) {
         var pid = state.pins[g][sid];
@@ -337,6 +377,8 @@ tr.sub td { background: var(--bg); }
     state.groups = {};
     state.names = {};
     state.pins = {};
+    state.off = {};
+    state.hideOff = false;
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved) { dbg('load: nothing saved'); return; }
@@ -362,6 +404,8 @@ tr.sub td { background: var(--bg); }
         Object.keys(m).forEach(function (sid) { if (typeof m[sid] === 'string') { (state.pins[g] = state.pins[g] || {})[sid] = m[sid]; } });
       });
     }
+    if (saved.off && typeof saved.off === 'object') Object.keys(saved.off).forEach(function (t) { if (saved.off[t]) state.off[t] = 1; });
+    state.hideOff = !!saved.hideOff;
     cleanGroups();
     dbg('load: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length + ' (saved basket=' + (saved.basket || []).length + ')');
   }
@@ -405,7 +449,7 @@ tr.sub td { background: var(--bg); }
     Object.keys(state.names).forEach(function (id) { if (state.basket.indexOf(id) === -1) delete state.names[id]; });
     cleanGroups();
     cleanGroups();
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins })); }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins, off: state.off, hideOff: state.hideOff })); }
     catch (e) { dbg('SAVE FAILED: ' + e); try { toast('לא ניתן לשמור את הסל בדפדפן'); } catch (e2) {} return; }
     dbg('save: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length);
   }
@@ -538,7 +582,7 @@ tr.sub td { background: var(--bg); }
     }).catch(function () { return null; });
   }
   function applyIncoming(inc, mode) {
-    if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; }
+    if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; state.off = {}; state.hideOff = false; }
     var ns = 'i' + Date.now().toString(36);   // keeps imported group ids apart from this device's own
     var rename = function (g) { return ns + g; };
     inc.basket.forEach(function (id) { if (state.basket.indexOf(id) === -1 && state.basket.length < MAX_BASKET) state.basket.push(id); });
@@ -670,11 +714,14 @@ tr.sub td { background: var(--bg); }
     }
   }
   function updatePrune() {
+    var pb = $('printbtn');
+    pb.hidden = !printData.length || !printData[0].rows.length;
     var b = $('prune'), n = unusedMembers().length;
     b.hidden = !n;
     if (n) b.firstChild.textContent = 'נקה ' + n + ' פריטים שלא בשימוש';
   }
   function renderTable() {
+    printData = [];
     var stores = getStores();
     var ids = basketIds();
     updateStamp();
@@ -719,6 +766,8 @@ tr.sub td { background: var(--bg); }
       }
     });
     units.forEach(function (u) { u.ids.forEach(function (id) { rows.push(id); }); });
+    units.forEach(function (u) { u.tok = u.group ? 'g:' + u.group : u.ids[0]; u.off = !!state.off[u.tok]; });
+    var activeUnits = units.filter(function (u) { return !u.off; }).length, offUnits = units.length - activeUnits;
     lastUnits = units;
 
     function unitPrice(u, s) {
@@ -740,14 +789,26 @@ tr.sub td { background: var(--bg); }
       var sum = 0, missing = 0, counted = {};
       units.forEach(function (u) {
         var up = unitPrice(u, s);
-        if (up.price == null) missing++; else sum += up.price;
         if (u.group) counted[u.group] = up;
+        if (u.off) return;
+        if (up.price == null) missing++; else sum += up.price;
       });
       return { s: s, sum: sum, missing: missing, counted: counted };
     });
     stats.sort(function (a, b) { return (a.missing - b.missing) || (a.sum - b.sum); });
     stores = stats.map(function (x) { return x.s; });
     var totals = stats;
+    /* shopping list per store: active rows in table order, the variant each store counts */
+    printData = stats.map(function (t) {
+      var rowsP = [];
+      units.forEach(function (u) {
+        if (u.off) return;
+        var up = unitPrice(u, t.s), p = up.id && productById(up.id), p0 = productById(u.ids[0]);
+        var nm = p ? p.name + (p.s ? ' ' + p.s : '') : p0.name;
+        rowsP.push({ n: nm, price: up.price, w: !!(p && p.w), many: u.ids.length > 1 ? u.ids.length : 0 });
+      });
+      return { label: t.s.chain.name + ' · ' + t.s.branch, chain: t.s.chain.name, branch: t.s.branch, rows: rowsP, sum: t.sum, missing: t.missing };
+    });
 
     var head = '<th class="prod" scope="col">מוצר</th>';
     stores.forEach(function (s) {
@@ -773,12 +834,12 @@ tr.sub td { background: var(--bg); }
     }
 
     /* one row for a single product, or a member row inside an opened group */
-    function productRow(pid, g, asSub, mv) {
+    function productRow(pid, g, asSub, mv, off) {
       var prices = stores.map(function (s) { return getPrice(pid, s); });
       var min = null;
       prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
       var p = productById(pid);
-      var h = '<tr class="' + (g ? 'grp' : '') + (asSub ? ' sub' : '') + '"><td class="prod"><div class="pname">' + (asSub ? '' : (mv || '') + cbox(pid)) +
+      var h = '<tr class="' + (g ? 'grp' : '') + (asSub ? ' sub' : '') + (off ? ' off' : '') + '"><td class="prod"><div class="pname">' + (asSub ? '' : (mv || '') + cbox(pid)) +
         '<span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
         '<span class="acts">' +
         (g ? '<button class="keep" type="button" data-keep="' + esc(pid) + '" title="להשאיר רק את המוצר הזה ולהסיר את שאר המוצרים בהשוואה">השאר</button>' : '') +
@@ -808,7 +869,8 @@ tr.sub td { background: var(--bg); }
 
     var anyOpen = false;
     units.forEach(function (u, ui) {
-      if (!u.group) { body += productRow(u.ids[0], null, false, mvHtml(ui)); return; }
+      if (u.off && state.hideOff) return;
+      if (!u.group) { body += productRow(u.ids[0], null, false, mvHtml(ui), u.off); return; }
       /* merged group: one row, each store shows the cheapest variant it carries */
       var open = !!expanded[u.group];
       if (open) anyOpen = true;
@@ -818,7 +880,7 @@ tr.sub td { background: var(--bg); }
       prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
       var p0 = productById(u.ids[0]);
       var anyW = u.ids.some(function (id) { return productById(id).w; });
-      body += '<tr class="grp gsum"><td class="prod"><div class="pname">' + mvHtml(ui) + cbox('g:' + u.group) +
+      body += '<tr class="grp gsum' + (u.off ? ' off' : '') + '"><td class="prod"><div class="pname">' + mvHtml(ui) + cbox('g:' + u.group) +
         '<span class="n">' + esc(p0.name) + '<small class="gcount">' + u.ids.length + ' גרסאות' + (anyW ? ' · לפי משקל' : '') + '</small></span>' +
         '<span class="acts">' +
         '<button class="keep" type="button" data-toggle="' + esc(u.group) + '" aria-expanded="' + open + '" title="הצג או הסתר את הגרסאות ובחר אחת להשאיר">' + (open ? 'הסתר' : 'הצג') + '</button>' +
@@ -835,22 +897,25 @@ tr.sub td { background: var(--bg); }
       });
       body += '</tr>';
       if (open) {
-        u.ids.forEach(function (id) { body += productRow(id, u.group, true); });
+        u.ids.forEach(function (id) { body += productRow(id, u.group, true, '', u.off); });
       }
     });
 
     var mb = $('mergebar');
-    if (mergeSel.length >= 2) {
+    if (mergeSel.length) {
+      var selOff = 0, selOn = 0;
+      mergeSel.forEach(function (t) { if (state.off[t]) selOff++; else selOn++; });
       mb.hidden = false;
-      mb.innerHTML = '<span>סומנו ' + mergeSel.length + ' שורות</span><button type="button" class="go" data-merge="1">אחד לשורה אחת</button><button type="button" class="no" data-mergecancel="1">בטל</button>';
-    } else if (mergeSel.length === 1) {
-      mb.hidden = false;
-      mb.innerHTML = '<span>סמן עוד שורה כדי לאחד אותן לשורה אחת</span><button type="button" class="no" data-mergecancel="1">בטל</button>';
+      mb.innerHTML = '<span>סומנו ' + mergeSel.length + (mergeSel.length === 1 ? ' שורה' : ' שורות') + '</span>' +
+        (mergeSel.length >= 2 ? '<button type="button" class="go" data-merge="1">אחד לשורה אחת</button>' : '') +
+        (selOn ? '<button type="button" class="go" data-hide="1">הסתר מהסיכום</button>' : '') +
+        (selOff ? '<button type="button" class="go" data-unhide="1">החזר לסיכום</button>' : '') +
+        '<button type="button" class="no" data-mergecancel="1">בטל</button>';
     } else { mb.hidden = true; mb.innerHTML = ''; }
 
     var bestIdx = -1, worst = null;
     totals.forEach(function (t, i) {
-      if (t.missing !== 0) return;
+      if (t.missing !== 0 || !activeUnits) return;
       if (bestIdx < 0 || t.sum < totals[bestIdx].sum) bestIdx = i;
       if (worst == null || t.sum > worst) worst = t.sum;
     });
@@ -876,21 +941,26 @@ tr.sub td { background: var(--bg); }
     /* buying every item where it is cheapest, in as many stores as needed */
     var split = 0, splitOk = true;
     units.forEach(function (u) {
+      if (u.off) return;
       var m = null;
       stores.forEach(function (s) { var up = unitPrice(u, s); if (up.price != null && (m == null || up.price < m)) m = up.price; });
       if (m == null) splitOk = false; else split += m;
     });
 
-    if (bestIdx >= 0) {
+    var offNote = offUnits ? '<span class="txt offnote">' + offUnits + (offUnits === 1 ? ' שורה מוסתרת' : ' שורות מוסתרות') + ' מהסיכום' + (state.hideOff ? ' (לא מוצגות בטבלה)' : '') + '<button type="button" data-toggleoff="1">' + (state.hideOff ? 'הצג מוסתרות' : 'החבא לגמרי') + '</button><button type="button" data-showall="1">החזר הכל</button></span>' : '';
+    if (!activeUnits) {
+      summary.hidden = false;
+      summary.innerHTML = '<span class="txt">כל השורות מוסתרות מהסיכום. סמן שורות ולחץ "החזר לסיכום".</span>' + offNote;
+    } else if (bestIdx >= 0) {
       var bs = stores[bestIdx], save = worst - totals[bestIdx].sum, splitSave = totals[bestIdx].sum - split;
       summary.hidden = false;
       summary.innerHTML = '<span class="big">' + fmt(totals[bestIdx].sum) + '</span>' +
         '<span class="txt"><b>' + esc(bs.chain.name) + ' · ' + esc(bs.branch) + '</b> הוא הסל הזול ביותר ב' + esc(state.city) + '</span>' +
         (save > 0.05 ? '<span class="save">חיסכון של ' + fmt(save) + ' לעומת הסניף היקר ביותר</span>' : '') +
-        (splitOk && splitSave >= 0.5 ? '<span class="save">קנייה מפוצלת, הזול בכל שורה בכמה חנויות: ' + fmt(split) + ' (עוד ' + fmt(splitSave) + ' חיסכון)</span>' : '');
+        (splitOk && splitSave >= 0.5 ? '<span class="save">קנייה מפוצלת, הזול בכל שורה בכמה חנויות: ' + fmt(split) + ' (עוד ' + fmt(splitSave) + ' חיסכון)</span>' : '') + offNote;
     } else {
       summary.hidden = false;
-      summary.innerHTML = '<span class="txt">אף סניף לא מחזיק את כל המוצרים שבסל. הסר מוצר חסר כדי לראות סל שלם.</span>';
+      summary.innerHTML = '<span class="txt">אף סניף לא מחזיק את כל המוצרים שבסל. הסר מוצר חסר, או הסתר אותו מהסיכום, כדי לראות סל שלם.</span>' + offNote;
     }
   }
 
@@ -1085,8 +1155,18 @@ tr.sub td { background: var(--bg); }
     delete state.names[id];
     persist(); render();
   });
+  summary.addEventListener('click', function (e) {
+    if (e.target.closest('[data-toggleoff]')) { state.hideOff = !state.hideOff; mergeSel = []; persist(); render(); return; }
+    if (!e.target.closest('[data-showall]')) return;
+    state.off = {}; state.hideOff = false; persist(); render();
+  });
   $('mergebar').addEventListener('click', function (e) {
     if (e.target.closest('[data-mergecancel]')) { mergeSel = []; render(); return; }
+    var hb = e.target.closest('[data-hide]'), ub = e.target.closest('[data-unhide]');
+    if (hb || ub) {
+      mergeSel.forEach(function (t) { if (hb) state.off[t] = 1; else delete state.off[t]; });
+      mergeSel = []; persist(); render(); return;
+    }
     if (!e.target.closest('[data-merge]')) return;
     var members = [], gids = {};
     mergeSel.forEach(function (t) {
@@ -1134,6 +1214,52 @@ tr.sub td { background: var(--bg); }
       host.innerHTML = '<div class="empty">טוען מחירים…</div>';
       loadCity(state.city).then(done).catch(showFailure);
     } else done();
+  });
+  function listHtml(d, withPrices, forFile) {
+    var cityName = state.city, when = new Date().toLocaleDateString('he-IL');
+    var h = '<div class="plist"><h1>רשימת קניות · ' + esc(d.chain) + '</h1><p class="psub">' + esc(d.branch) + ' · ' + esc(cityName) + ' · ' + esc(when) + '</p>' +
+      '<table><thead><tr><th class="c">✓</th><th>פריט</th>' + (withPrices ? '<th class="n">מחיר</th>' : '') + '</tr></thead><tbody>';
+    d.rows.forEach(function (r) {
+      h += '<tr><td class="c"><span class="box"></span></td><td>' + esc(r.n) + (r.w ? ' <small>(לפי משקל)</small>' : '') + '</td>' +
+        (withPrices ? '<td class="n">' + (r.price == null ? '<small>אין במלאי</small>' : fmt(r.price)) + '</td>' : '') + '</tr>';
+    });
+    h += '</tbody>' + (withPrices ? '<tfoot><tr><td></td><td>סה״כ' + (d.missing ? ' (חסרים ' + d.missing + ' פריטים בחנות זו)' : '') + '</td><td class="n">' + fmt(d.sum) + '</td></tr></tfoot>' : '') + '</table>' +
+      '<p class="pfoot">המחירים מבוססים על קבצי שקיפות מחירים, עשויים להשתנות בסניף.</p></div>';
+    return h;
+  }
+  var PRINT_CSS = '.plist{font-family:Arial,Helvetica,sans-serif;color:#000;direction:rtl}.plist h1{font-size:22px;margin:0 0 4px}.psub{margin:0 0 14px;color:#444}' +
+    '.plist table{width:100%;border-collapse:collapse}.plist th,.plist td{border-bottom:1px solid #bbb;padding:7px 6px;text-align:right;font-size:15px}' +
+    '.plist th{border-bottom:2px solid #000}.plist .c{width:28px;text-align:center}.plist .n{text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums}' +
+    '.plist tfoot td{font-weight:700;border-top:2px solid #000;border-bottom:0}.plist .box{display:inline-block;width:14px;height:14px;border:1.5px solid #000;border-radius:3px}' +
+    '.plist small{color:#555}.pfoot{margin-top:14px;font-size:12px;color:#555}';
+  var printStyle = document.createElement('style');
+  printStyle.textContent = '@media print{' + PRINT_CSS + '}';
+  document.head.appendChild(printStyle);
+  document.body.appendChild($('printarea'));   // must be a direct child of <body> for the print stylesheet
+  var pdlg = $('printdlg');
+  $('printbtn').addEventListener('click', function () {
+    var sel = $('printStore');
+    sel.innerHTML = printData.map(function (d, i) {
+      return '<option value="' + i + '">' + esc(d.label) + ' · ' + fmt(d.sum) + (d.missing ? ' (חסרים ' + d.missing + ')' : '') + '</option>';
+    }).join('');
+    $('printNote').textContent = 'יודפסו ' + printData[0].rows.length + ' שורות פעילות בלבד. שורות שהוסתרו מהסיכום לא נכללות.';
+    if (pdlg.showModal) pdlg.showModal(); else pdlg.setAttribute('open', '');
+  });
+  $('printGo').addEventListener('click', function () {
+    var d = printData[+$('printStore').value]; if (!d) return;
+    $('printarea').innerHTML = listHtml(d, $('printPrices').checked);
+    if (pdlg.close) pdlg.close();
+    setTimeout(function () { window.print(); }, 50);
+  });
+  $('printSave').addEventListener('click', function () {
+    var d = printData[+$('printStore').value]; if (!d) return;
+    var html = '<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>רשימת קניות</title><style>body{margin:16px}' + PRINT_CSS + '</style></head><body>' + listHtml(d, $('printPrices').checked) + '</body></html>';
+    var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), a = document.createElement('a');
+    a.href = url; a.download = 'רשימת-קניות-' + d.chain + '.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    if (pdlg.close) pdlg.close();
+    toast('הקובץ נשמר. פתח אותו בדפדפן והדפס, או שמור כ-PDF');
   });
   $('prune').addEventListener('click', function () {
     var un = unusedMembers();
