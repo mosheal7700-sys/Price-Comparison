@@ -1375,7 +1375,11 @@ tr.sub td { background: var(--bg); }
     var head = ['ברקוד', 'שם הפריט', 'אריזה / כמות', 'לפי משקל', 'מס׳ רשתות', 'מחיר הזול ביותר'].concat(stores.map(function (s) { return s.chain.name + ' · ' + s.branch; }));
     var rows = (cityData.products || []).map(function (p) {
       var gtin = /^\d{8,14}$/.test(p.id) ? p.id : '';
-      var ean = gtin.length === 14 && gtin.charAt(0) === '0' ? gtin.slice(1) : gtin;     // as printed on the package (EAN-13)
+      var ean = gtin;                                                                    // as printed on the package: EAN-8, UPC-A (12) or EAN-13
+      if (gtin.length === 14) {
+        var core = gtin.replace(/^0+/, '');
+        ean = core.length <= 8 ? ('00000000' + core).slice(-8) : (core.length <= 12 && gtin.slice(0, 2) === '00' ? ('000000000000' + core).slice(-12) : ('0000000000000' + core).slice(-13));
+      }
       var prices = stores.map(function (s, i) { var v = p.p[i]; return v == null ? '' : v; });
       var seen = {}, vals = [];
       stores.forEach(function (s, i) { var v = p.p[i]; if (v != null) { seen[s.chain.name] = 1; vals.push(v); } });

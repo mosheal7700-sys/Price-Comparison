@@ -155,6 +155,28 @@ def norm_name(name: str, keep_numbers: bool = False) -> str:
     return " ".join(t for t in toks if t and t not in _STOP_STEMS)
 
 
+def item_name(it) -> str:
+    """The item's name; when a chain cut it short (many portals stop at 20 characters) and the
+    manufacturer description carries the same text in full, use that."""
+    nm = (it.name or "").strip()
+    md = (getattr(it, "manufacturer_description", None) or "").strip()
+    if md and len(md) > len(nm) and md.startswith(nm):
+        return md
+    return nm
+
+
+def best_name(votes: Counter) -> str:
+    """Most common spelling, where a name that is only the beginning of a longer one counts for the longer one
+    (one chain's cut-off 'סנו סושי - שקיות אוכ' supports another chain's full 'סנו סושי - שקיות אוכל')."""
+    names = list(votes)
+    score = {n: votes[n] for n in names}
+    for a in names:
+        for b in names:
+            if len(b) > len(a) and b.startswith(a):
+                score[b] += votes[a]
+    return max(names, key=lambda n: (score[n], len(n)))
+
+
 def _is_code(v) -> bool:
     return bool(re.fullmatch(r"\d+", str(v or "").strip())) and str(v).strip().lstrip("0") != ""
 
@@ -513,13 +535,15 @@ def main() -> int:
                             nm_f, code = it.name.translate(_FINALS), str(it.item_code)
                             for w, wf in watch_f:
                                 if wf in nm_f or w in code:
-                                    watch_hits.setdefault(w, []).append((e["chain"], code, it.name.strip(), key))
+                                    _md = (getattr(it, "manufacturer_description", None) or "").strip()
+                                    shown = it.name.strip() + (f' [{len(it.name.strip())} chars]') + (f' | manufacturer description: {_md}' if _md and _md != it.name.strip() else '')
+                                    watch_hits.setdefault(w, []).append((e["chain"], code, shown, key))
                                     prices_seen.setdefault(key, []).append(f'{e["chain"]}={float(it.price):g}')
                         price = float(round(it.price, 2))
                         if not g and key in prices:
                             price = min(price, prices[key])  # several variants of one name: keep the lowest
                         prices[key] = price
-                        names.setdefault(key, Counter())[it.name.strip()] += 1
+                        names.setdefault(key, Counter())[item_name(it)] += 1
                         if by_weight:
                             weighted.add(key)
                         if g:
@@ -547,7 +571,7 @@ def main() -> int:
         need_loose = min(loose_min_chains, max(1, len(fresh_chains)))
 
         def rank(keys):
-            return sorted(keys, key=lambda g: (-len(carriers[g]), names[g].most_common(1)[0][0]))
+            return sorted(keys, key=lambda g: (-len(carriers[g]), best_name(names[g])))
 
         barcoded = [g for g, ch in carriers.items() if not g.startswith("n:") and len(ch) >= need]
         loose = [g for g, ch in carriers.items() if g.startswith("n:") and len(ch) >= need_loose]
@@ -579,7 +603,7 @@ def main() -> int:
             row = [c[1].get(g) for c in columns]
             if all(v is None for v in row):
                 continue
-            prod = {"id": g, "n": names[g].most_common(1)[0][0], "p": row}
+            prod = {"id": g, "n": best_name(names[g]), "p": row}
             if g in sizes:
                 prod["s"] = sizes[g].most_common(1)[0][0]
             if g in weighted:
