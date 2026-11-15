@@ -197,6 +197,8 @@ td.alt { color: var(--muted); }
 .keep:hover { background: var(--best-bg); }
 .lostbar { padding: 10px 14px; background: var(--warn-bg, #fff4d6); color: var(--warn-fg, #6b4a00); border-radius: 12px; font-size: 14px; line-height: 1.6; }
 .lostbar[hidden] { display: none; }
+.lostbar .lbhead { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 8px; border: 0; background: transparent; color: inherit; font: inherit; text-align: right; padding: 0; min-height: 32px; cursor: pointer; }
+.lostbar .lbbody { margin-top: 4px; }
 .lostbar ul { list-style: none; margin: 6px 0 0; padding: 0; }
 .lostbar li { display: flex; align-items: center; gap: 8px; }
 .lostbar button { min-height: 28px; border-radius: 999px; border: 1px solid currentColor; background: transparent; color: inherit; padding: 0 12px; }
@@ -238,6 +240,7 @@ tr.sub td { background: var(--bg); }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2"/></svg>
         <span>העבר סל</span>
       </button>
+      <button class="btn ghost" id="exportitems" type="button" title="מוריד לקובץ Excel את כל הפריטים של העיר שנבחרה, כולל ברקוד ומחיר בכל סניף"><span>הורד פריטי העיר (Excel)</span></button>
       <button class="btn ghost" id="printbtn" type="button" hidden title="הדפסה או שמירה של רשימת הקניות לחנות שתבחר"><span>רשימת קניות להדפסה</span></button>
       <button class="btn ghost" id="prune" type="button" hidden title="מסיר משורות ממוזגות את הפריטים שלא הזולים באף חנות ולא נבחרו ידנית"><span></span></button>
     </div>
@@ -325,7 +328,7 @@ tr.sub td { background: var(--bg); }
 
   function getStores() {
     return ((cityData && cityData.stores) || []).map(function (s, i) {
-      return { id: s.id, chain: { name: s.cn }, branch: s.b || '', idx: i, stale: !!s.stale, asOf: s.as_of || null };
+      return { id: s.id, chain: { name: s.cn }, branch: s.b || '', idx: i, stale: !!s.stale, asOf: s.as_of || null, ts: s.ts || null };
     });
   }
   function getPrice(pid, store) {
@@ -341,6 +344,7 @@ tr.sub td { background: var(--bg); }
   var state = { city: '', basket: [], groups: {}, names: {}, pins: {}, off: {}, qty: {}, hideOff: false };   // off: rows hidden from the total (group id as 'g:'+id, or product id)   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
   var lastUnits = [];     // the rows of the table as last drawn, for moving them
   var printData = [];
+  var lostOpen = false;   // the list of items missing from the data stays folded until the header is tapped
   var focusMove = null;   // keeps keyboard focus on the arrow that was just used
   var mergeSel = [];      // rows ticked for merging: product ids, or 'g:'+group id
   var expanded = {};      // merged rows currently opened
@@ -673,6 +677,14 @@ tr.sub td { background: var(--bg); }
       }
     }
   }
+  /* a branch whose newest published file is more than ~a day and a half older than the run: show its date */
+  function oldFile(s) {
+    if (!s.ts || !liveIndex || !liveIndex.generated_at) return '';
+    var t = Date.parse(s.ts), g = Date.parse(liveIndex.generated_at);
+    if (!(t > 0) || !(g > 0) || g - t < 36 * 3600 * 1000) return '';
+    var d = new Date(t);
+    return '<span class="miss" title="הקובץ העדכני ביותר שהרשת פרסמה לסניף הזה הוא מתאריך ' + esc(d.toLocaleDateString('he-IL')) + '">נתוני ' + d.getDate() + '.' + (d.getMonth() + 1) + '</span>';
+  }
   function updateNotes() {
     note.innerHTML = '<span>המחירים נלקחים מקבצי שקיפות המחירים שהרשתות מפרסמות לפי חוק, ונאספים אוטומטית כל כמה שעות. הכפתור "רענן מחירים" טוען את העדכון האחרון. מחירי המבצעים אינם כלולים, ומחיר בסניף עשוי להיות שונה מהמחיר בקופה.</span>';
     /* a chain without a fresh update is flagged in its own column header ("נתונים ישנים"), not by a page-wide warning */
@@ -761,12 +773,12 @@ tr.sub td { background: var(--bg); }
     var lb = $('lostbar');
     if (lost.length) {
       lb.hidden = false;
-      lb.innerHTML = '<strong>' + lost.length + (lost.length === 1 ? ' מוצר שבסל לא נמצא' : ' מוצרים שבסל לא נמצאו') + ' בנתונים העדכניים.</strong> ' +
-        'הם נשמרו ויחזרו לטבלה אם יופיעו שוב בעדכון הבא.<ul>' +
+      lb.innerHTML = '<button type="button" class="lbhead" data-lbtoggle="1" aria-expanded="' + lostOpen + '"><strong>' + lost.length + (lost.length === 1 ? ' מוצר שבסל לא נמצא' : ' מוצרים שבסל לא נמצאו') + ' בנתונים העדכניים</strong><span class="lbarrow">' + (lostOpen ? '▲' : '▼') + '</span></button>' +
+        (lostOpen ? '<div class="lbbody">הם נשמרו ויחזרו לטבלה אם יופיעו שוב בעדכון הבא.<ul>' : '<div hidden><ul>') +
         lost.map(function (id) {
           var nm = state.names[id];
           return '<li><span>' + esc(nm ? nm.n + (nm.s ? ' ' + nm.s : '') : 'מוצר שמור (קוד ' + id + ')') + '</span><button type="button" data-rmlost="' + esc(id) + '">הסר</button></li>';
-        }).join('') + '</ul>';
+        }).join('') + '</ul></div>';
     } else { lb.hidden = true; lb.innerHTML = ''; }
 
     if (!stores.length) {
@@ -835,7 +847,7 @@ tr.sub td { background: var(--bg); }
       units.forEach(function (u) {
         if (u.off) return;
         var up = unitPrice(u, t.s), p = up.id && productById(up.id), p0 = productById(u.ids[0]);
-        var nm = p ? p.name + (p.s ? ' ' + p.s : '') : p0.name;
+        var nm = p ? p.name + (p.size ? ' ' + p.size : '') : p0.name;
         rowsP.push({ n: nm, q: u.q, unit: up.price, price: up.price == null ? null : up.price * u.q, w: !!(p && p.w), many: u.ids.length > 1 ? u.ids.length : 0 });
       });
       return { label: t.s.chain.name + ' · ' + t.s.branch, chain: t.s.chain.name, branch: t.s.branch, rows: rowsP, sum: t.sum, missing: t.missing };
@@ -844,7 +856,7 @@ tr.sub td { background: var(--bg); }
     var head = '<th class="prod" scope="col">מוצר</th><th class="qty" scope="col">כמות</th>';
     stores.forEach(function (s) {
       head += '<th scope="col"><div class="chain">' + esc(s.chain.name) + '</div><div class="branch">' + esc(s.branch) + '</div>' +
-        (s.stale ? '<span class="miss" title="לא התקבל עדכון חדש מהרשת, מוצגים נתונים קודמים">נתונים ישנים</span>' : '') + '</th>';
+        (s.stale ? '<span class="miss" title="לא התקבל עדכון חדש מהרשת, מוצגים נתונים קודמים">נתונים ישנים</span>' : oldFile(s)) + '</th>';
     });
 
     var body = '';
@@ -1197,6 +1209,7 @@ tr.sub td { background: var(--bg); }
     persist(); render();
   });
   $('lostbar').addEventListener('click', function (e) {
+    if (e.target.closest('[data-lbtoggle]')) { lostOpen = !lostOpen; render(); return; }
     var b = e.target.closest('[data-rmlost]');
     if (!b) return;
     var id = b.getAttribute('data-rmlost');
@@ -1351,6 +1364,52 @@ tr.sub td { background: var(--bg); }
   printStyle.textContent = '@media print{' + PRINT_CSS + '}';
   document.head.appendChild(printStyle);
   document.body.appendChild($('printarea'));   // must be a direct child of <body> for the print stylesheet
+  /* ---------- All items of the selected city as an Excel file, barcode included ---------- */
+  function loadScript(src) {
+    return new Promise(function (ok, bad) {
+      var el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = bad; document.head.appendChild(el);
+    });
+  }
+  function itemRows() {
+    var stores = getStores(), now = new Date();
+    var head = ['ברקוד', 'שם הפריט', 'אריזה / כמות', 'לפי משקל', 'מס׳ רשתות', 'מחיר הזול ביותר'].concat(stores.map(function (s) { return s.chain.name + ' · ' + s.branch; }));
+    var rows = (cityData.products || []).map(function (p) {
+      var gtin = /^\d{8,14}$/.test(p.id) ? p.id : '';
+      var ean = gtin.length === 14 && gtin.charAt(0) === '0' ? gtin.slice(1) : gtin;     // as printed on the package (EAN-13)
+      var prices = stores.map(function (s, i) { var v = p.p[i]; return v == null ? '' : v; });
+      var seen = {}, vals = [];
+      stores.forEach(function (s, i) { var v = p.p[i]; if (v != null) { seen[s.chain.name] = 1; vals.push(v); } });
+      return [ean || '(ללא ברקוד: לפי שם)', p.n, p.s || '', p.w ? 'כן' : '', Object.keys(seen).length, vals.length ? Math.min.apply(null, vals) : ''].concat(prices);
+    });
+    rows.sort(function (a, b) { return String(a[1]).localeCompare(String(b[1]), 'he'); });
+    return { head: head, rows: rows, stamp: now.toISOString().slice(0, 10) };
+  }
+  function saveBlob(blob, name) {
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  $('exportitems').addEventListener('click', function () {
+    if (!cityData) return;
+    var data = itemRows(), base = 'פריטים-' + state.city + '-' + data.stamp;
+    toast('מכין את הקובץ…');
+    var viaCsv = function () {
+      var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) || /^\d{8,}$/.test(v) ? '"' + (/^\d{8,}$/.test(v) ? '=""' + v + '""' : v.replace(/"/g, '""')) + '"' : v; };
+      var csv = [data.head].concat(data.rows).map(function (r) { return r.map(q).join(','); }).join('\r\n');
+      saveBlob(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), base + '.csv');
+      toast('הורד קובץ CSV (נפתח ב-Excel)');
+    };
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js').then(function () {
+      var ws = XLSX.utils.aoa_to_sheet([data.head].concat(data.rows));   // text cells stay text: barcodes keep every digit
+      ws['!cols'] = [{ wch: 16 }, { wch: 48 }, { wch: 16 }, { wch: 9 }, { wch: 10 }, { wch: 14 }].concat(data.head.slice(6).map(function () { return { wch: 18 }; }));
+      ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: data.rows.length, c: data.head.length - 1 } }) };
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'פריטים');
+      wb.Workbook = { Views: [{ RTL: true }] };
+      XLSX.writeFile(wb, base + '.xlsx');
+      toast('הקובץ הורד');
+    }).catch(function () { viaCsv(); });
+  });
   var pdlg = $('printdlg');
   $('printbtn').addEventListener('click', function () {
     var sel = $('printStore');

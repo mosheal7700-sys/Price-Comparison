@@ -27,7 +27,7 @@ import time
 import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -51,6 +51,42 @@ def retry(fn, tries: int = 3):
             if i < tries - 1:
                 time.sleep(RETRY_DELAY * (i + 1))
     raise last
+
+
+def _age_hours(published) -> float | None:
+    """Hours since a portal file was published (file names carry Israel local time)."""
+    if published is None:
+        return None
+    try:
+        if published.tzinfo is None:
+            try:
+                from zoneinfo import ZoneInfo
+                published = published.replace(tzinfo=ZoneInfo("Asia/Jerusalem"))
+            except Exception:
+                published = published.replace(tzinfo=timezone(timedelta(hours=2)))
+        return (datetime.now(timezone.utc) - published).total_seconds() / 3600
+    except Exception:
+        return None
+
+
+def fetch_fresh(adapter, ftype, store_id, max_age_h: float, tries: int, wait: float):
+    """Newest file of a type, asking the portal again when what it lists looks old.
+
+    Chains' portals sometimes answer a listing with a stale or truncated view (the run
+    after it is fine). If the newest file is older than max_age_h, list again a few
+    times and keep the newest one seen. Returns (FileRef, bytes-parsed-later, age_h).
+    """
+    best, best_age = None, None
+    for i in range(max(1, tries)):
+        ref = retry(lambda: adapter.latest(ftype, store_id=store_id))
+        age = _age_hours(ref.published_at)
+        if best is None or (ref.published_at and (best.published_at is None or ref.published_at > best.published_at)):
+            best, best_age = ref, age
+        if age is None or age <= max_age_h:
+            break
+        if i < tries - 1:
+            time.sleep(wait * (i + 1))
+    return best, best_age
 
 
 def fetch_prev(base: str | None, name: str):
@@ -235,6 +271,9 @@ def main() -> int:
     cand_cfg = int(cfg.get("candidate_stores", 6))
     cand = 10**6 if cand_cfg <= 0 else max(per_chain, cand_cfg)  # 0 = every branch in the city
     fill_gaps = bool(cfg.get("fill_gaps", True))
+    max_age_h = float(cfg.get("max_file_age_hours", 36))   # older price files are re-listed (portals sometimes serve a stale view)
+    age_tries = int(cfg.get("stale_retries", 3))
+    age_wait = float(cfg.get("stale_retry_wait", 20))
     fuzzy = bool(cfg.get("fuzzy_city_match", True))  # retry with spelling variants when a chain has no branch in a city
     min_chains = int(cfg.get("min_chains", 1))
     max_products = int(cfg.get("max_products", 0)) or 10**9  # 0 = no limit
@@ -256,7 +295,11 @@ def main() -> int:
         if slug not in infos:
             return slug, None, "unknown chain"
         try:
-            return slug, retry(lambda: ilp.get_stores(slug)).stores, None
+            ad = ilp.get_adapter(slug)
+            ref, age = fetch_fresh(ad, ilp.FileType.STORES, None, max_age_h * 2, age_tries, age_wait)
+            if age is not None and age > max_age_h * 2:
+                log(f"[fresh] {slug}: branch list file is {age:.0f}h old even after {age_tries} tries")
+            return slug, ilp.parse(retry(lambda: ad.download(ref))).stores, None
         except Exception as exc:
             return slug, None, str(exc)[:200]
 
@@ -369,10 +412,17 @@ def main() -> int:
     def price_task(job):
         chain, sid = job
         try:
-            return job, retry(lambda: ilp.get_prices(chain, sid)), None
+            ad = ilp.get_adapter(chain)
+            ref, age = fetch_fresh(ad, ilp.FileType.PRICE_FULL, sid, max_age_h, age_tries, age_wait)
+            pf = ilp.parse(retry(lambda: ad.download(ref)))
+            file_ts[job] = ref.published_at
+            if age is not None and age > max_age_h:
+                log(f"[fresh] {chain}/{sid}: newest price file is {age:.0f}h old even after {age_tries} tries")
+            return job, pf, None
         except Exception as exc:
             return job, None, str(exc)[:200]
 
+    file_ts: dict[tuple, object] = {}   # (chain, store id) -> when the portal published the file we used
     counters = {slug: {"ok": 0, "failed": 0, "error": None} for slug in chains_cfg}
     pool = ThreadPoolExecutor(WORKERS)
     started = time.time()
@@ -428,6 +478,9 @@ def main() -> int:
             sid = f'{e["chain"]}:{e["store_id"]}'
             sd = {"id": sid, "chain": e["chain"], "cn": status[e["chain"]]["name"], "b": e["label"]}
             pf = files.get((e["chain"], e["store_id"]))
+            fts = file_ts.get((e["chain"], e["store_id"]))
+            if pf is not None and fts is not None:
+                sd["ts"] = fts.isoformat(timespec="minutes")   # file time (Israel local time), shown when the data is old
             prices: dict[str, float] = {}
             if pf is not None:
                 srcs = [(pf, False)]
