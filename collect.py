@@ -319,6 +319,7 @@ def main() -> int:
     fuzzy = bool(cfg.get("fuzzy_city_match", True))  # retry with spelling variants when a chain has no branch in a city
     min_chains = int(cfg.get("min_chains", 1))
     max_products = int(cfg.get("max_products", 0)) or 10**9  # 0 = no limit
+    exclude_names = [str(x).strip() for x in cfg.get("exclude_names", ["דמי משלוח"]) if str(x).strip()]   # fees and other non-products
     include_loose = bool(cfg.get("include_unbarcoded", True))
     loose_min_chains = int(cfg.get("loose_min_chains", 2))
     max_loose = int(cfg.get("max_loose", 0)) or 10**9  # 0 = no limit
@@ -514,6 +515,8 @@ def main() -> int:
 
         columns = []  # (store dict, {gtin: price}, fresh)
         names: dict[str, Counter] = {}
+        chain_names: dict[str, dict] = {}     # barcode -> chain -> names it uses (to spot a code reused for different things)
+        weighted_ch: dict[str, set] = {}      # barcode -> chains that sell it by weight
         sizes: dict[str, Counter] = {}
         carriers: dict[str, set] = {}
         weighted: set[str] = set()
@@ -540,6 +543,8 @@ def main() -> int:
                         base_keys = set(prices)  # items from larger branches (processed first) win
                     for it in src.items:
                         if it.price is None or it.price <= 0 or not it.name or not it.name.strip():
+                            continue
+                        if exclude_names and any(x in it.name for x in exclude_names):
                             continue
                         g = it.gtin
                         um = (it.unit_of_measure or "").replace('"', "").replace("'", "").replace("׳", "").replace("״", "")
@@ -572,6 +577,9 @@ def main() -> int:
                         if by_weight:
                             weighted.add(key)
                         if g:
+                            chain_names.setdefault(key, {}).setdefault(e["chain"], Counter())[item_name(it)] += 1
+                            if by_weight:
+                                weighted_ch.setdefault(key, set()).add(e["chain"])
                             sz = size_label(it)
                             if sz:
                                 sizes.setdefault(key, Counter())[sz] += 1
@@ -594,6 +602,68 @@ def main() -> int:
         fresh_chains = {c[0]["chain"] for c in columns if c[2]}
         need = min(min_chains, max(1, len(fresh_chains)))
         need_loose = min(loose_min_chains, max(1, len(fresh_chains)))
+
+        # A code that chains use for different things (a retailer's internal code, e.g. 7290000000091 is pepper
+        # at one chain and a delivery fee at another) is no barcode. When the names used for one weighed code
+        # share no word across chains, split it: every group of chains is keyed by its own name, like any
+        # product without a barcode, so a delivery fee is no longer shown as pepper.
+        def split_conflicts():
+            moved = []
+            for key in list(chain_names):
+                per = chain_names[key]
+                if len(per) < 2 or key not in weighted:
+                    continue
+                rep_name = {ch: cnt.most_common(1)[0][0] for ch, cnt in per.items()}
+                toks = {ch: set(norm_name(n).split()) for ch, n in rep_name.items()}
+                parent = {ch: ch for ch in per}
+                def find(x):
+                    while parent[x] != x:
+                        parent[x] = parent[parent[x]]
+                        x = parent[x]
+                    return x
+                chs = list(per)
+                for i_, a_ in enumerate(chs):
+                    for b_ in chs[i_ + 1:]:
+                        na, nb = rep_name[a_], rep_name[b_]
+                        if (toks[a_] & toks[b_]) or na.startswith(nb) or nb.startswith(na):
+                            parent[find(a_)] = find(b_)
+                clusters: dict[str, list] = {}
+                for ch in chs:
+                    clusters.setdefault(find(ch), []).append(ch)
+                if len(clusters) < 2:
+                    continue
+                newkey, name_cluster = {}, {}
+                for root, members in clusters.items():
+                    best_ch = max(members, key=lambda c_: sum(per[c_].values()))
+                    nm_ = rep_name[best_ch]
+                    sold_by_weight = any(c_ in weighted_ch.get(key, ()) for c_ in members)
+                    nn_ = norm_name(nm_, keep_numbers=not sold_by_weight)
+                    for c_ in members:
+                        newkey[c_] = ("n:" + nn_) if len(nn_) >= 3 else None
+                        for n_ in per[c_]:
+                            name_cluster[n_] = newkey[c_]
+                for sd_, prices_, _f in columns:
+                    nk = newkey.get(sd_["chain"])
+                    if key in prices_:
+                        v = prices_.pop(key)
+                        if nk:
+                            prices_[nk] = min(v, prices_[nk]) if nk in prices_ else v
+                for ch, nk in newkey.items():
+                    if nk:
+                        carriers.setdefault(nk, set()).add(ch)
+                        if ch in weighted_ch.get(key, ()):
+                            weighted.add(nk)
+                for n_, cnt_ in names.get(key, {}).items():
+                    nk = name_cluster.get(n_)
+                    if nk:
+                        names.setdefault(nk, Counter())[n_] += cnt_
+                names.pop(key, None); carriers.pop(key, None); sizes.pop(key, None); weighted.discard(key)
+                moved.append((key, sorted({v for v in rep_name.values()})))
+            return moved
+        moved_codes = split_conflicts()
+        if moved_codes:
+            log(f"[codes] {city['name']}: {len(moved_codes)} codes are used for different items in different chains, "
+                f"keyed by name instead: " + "; ".join(f"{k.lstrip('0')} = {' / '.join(v)[:70]}" for k, v in moved_codes[:6]))
 
         def rank(keys):
             return sorted(keys, key=lambda g: (-len(carriers[g]), best_name(names[g])))
