@@ -180,6 +180,11 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   #printarea { display: block !important; color: #000; background: #fff; }
   @page { margin: 12mm; }
 }
+tr.hrow td { background: var(--surface); border-bottom: 2px solid var(--accent); padding: 6px 12px; text-align: right; }
+.hwrap { display: flex; align-items: center; gap: 10px; position: sticky; right: 12px; inline-size: max-content; max-inline-size: calc(100vw - 48px); }
+.hin { font: inherit; font-size: 17px; font-weight: 700; color: var(--accent); border: 1px dashed transparent; background: transparent; border-radius: 8px; padding: 6px 8px; min-width: 180px; max-width: 70vw; }
+.hin:hover { border-color: var(--line); }
+.hin:focus { border-color: var(--accent); background: var(--bg); outline: none; }
 th.qty, td.qty { width: 74px; min-width: 74px; padding-inline: 4px; }
 .qin { width: 58px; min-height: 36px; text-align: center; font: inherit; font-weight: 600; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 2px 4px; }
 .each { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
@@ -240,6 +245,7 @@ tr.sub td { background: var(--bg); }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2"/></svg>
         <span>העבר סל</span>
       </button>
+      <button class="btn ghost" id="addhead" type="button" title="מוסיף שורת כותרת נושא לטבלה (נכנסת גם לרשימת ההדפסה ולקובץ). אם סומנה שורה, הכותרת תתווסף מעליה"><span>הוסף כותרת</span></button>
       <button class="btn ghost" id="exportitems" type="button" title="מוריד לקובץ Excel את כל הפריטים של העיר שנבחרה, כולל ברקוד ומחיר בכל סניף"><span>הורד פריטי העיר (Excel)</span></button>
       <button class="btn ghost" id="printbtn" type="button" hidden title="הדפסה או שמירה של רשימת הקניות לחנות שתבחר"><span>רשימת קניות להדפסה</span></button>
       <button class="btn ghost" id="prune" type="button" hidden title="מסיר משורות ממוזגות את הפריטים שלא הזולים באף חנות ולא נבחרו ידנית"><span></span></button>
@@ -341,7 +347,7 @@ tr.sub td { background: var(--bg); }
   /* ---------- State ---------- */
   /* groups: product id -> group id. Products in one group are alternatives to each other,
      and only the cheapest of them in each store counts towards that store's basket total. */
-  var state = { city: '', basket: [], groups: {}, names: {}, pins: {}, off: {}, qty: {}, hideOff: false };   // off: rows hidden from the total (group id as 'g:'+id, or product id)   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
+  var state = { city: '', basket: [], groups: {}, names: {}, pins: {}, off: {}, qty: {}, heads: {}, hideOff: false };   // off: rows hidden from the total (group id as 'g:'+id, or product id)   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
   var lastUnits = [];     // the rows of the table as last drawn, for moving them
   var printData = [];
   var lostOpen = false;   // the list of items missing from the data stays folded until the header is tapped
@@ -359,6 +365,7 @@ tr.sub td { background: var(--bg); }
       localStorage.setItem(LOG_KEY, JSON.stringify(a.slice(-60)));
     } catch (e) {}
   }
+  function isHead(id) { return typeof id === 'string' && id.indexOf('h:') === 0; }
   function cleanQty(v) { var n = Math.round(parseFloat(v) * 100) / 100; return n > 0 && n <= 999 ? n : 1; }
   function tokenAlive(t) { return t.indexOf('g:') === 0 ? Object.keys(state.groups).some(function (id) { return state.groups[id] === t.slice(2); }) : state.basket.indexOf(t) !== -1; }
   function cleanGroups() {
@@ -370,6 +377,7 @@ tr.sub td { background: var(--bg); }
     Object.keys(state.groups).forEach(function (id) { if (n[state.groups[id]] < 2) delete state.groups[id]; });
     Object.keys(state.off).forEach(function (t) { if (!tokenAlive(t)) delete state.off[t]; });
     Object.keys(state.qty).forEach(function (t) { if (!tokenAlive(t)) delete state.qty[t]; });
+    Object.keys(state.heads).forEach(function (h) { if (state.basket.indexOf(h) === -1) delete state.heads[h]; });
     Object.keys(state.pins).forEach(function (g) {
       Object.keys(state.pins[g]).forEach(function (sid) {
         var pid = state.pins[g][sid];
@@ -387,6 +395,7 @@ tr.sub td { background: var(--bg); }
     state.off = {};
     state.hideOff = false;
     state.qty = {};
+    state.heads = {};
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved) { dbg('load: nothing saved'); return; }
@@ -414,6 +423,7 @@ tr.sub td { background: var(--bg); }
     }
     if (saved.off && typeof saved.off === 'object') Object.keys(saved.off).forEach(function (t) { if (saved.off[t]) state.off[t] = 1; });
     state.hideOff = !!saved.hideOff;
+    if (saved.heads && typeof saved.heads === 'object') Object.keys(saved.heads).forEach(function (h) { if (isHead(h) && typeof saved.heads[h] === 'string') state.heads[h] = saved.heads[h].slice(0, 80); });
     if (saved.qty && typeof saved.qty === 'object') Object.keys(saved.qty).forEach(function (t) { var n = cleanQty(saved.qty[t]); if (n !== 1) state.qty[t] = n; });
     cleanGroups();
     dbg('load: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length + ' (saved basket=' + (saved.basket || []).length + ')');
@@ -460,7 +470,7 @@ tr.sub td { background: var(--bg); }
     Object.keys(state.names).forEach(function (id) { if (state.basket.indexOf(id) === -1) delete state.names[id]; });
     cleanGroups();
     cleanGroups();
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins, off: state.off, qty: state.qty, hideOff: state.hideOff })); }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins, off: state.off, qty: state.qty, heads: state.heads, hideOff: state.hideOff })); }
     catch (e) { dbg('SAVE FAILED: ' + e); try { toast('לא ניתן לשמור את הסל בדפדפן'); } catch (e2) {} return; }
     dbg('save: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length);
   }
@@ -481,7 +491,7 @@ tr.sub td { background: var(--bg); }
     });
     return out;
   }
-  function basketIds() { return state.basket.filter(function (id) { return !!productById(id); }); }
+  function basketIds() { return state.basket.filter(function (id) { return isHead(id) || !!productById(id); }); }
 
   /* ---------- Moving a basket to another device: a link that carries the basket in its #fragment ---------- */
   function b64enc(str) {
@@ -529,6 +539,9 @@ tr.sub td { background: var(--bg); }
     if (offT.length) o.o = offT;
     if (Object.keys(qty).length) o.q = qty;
     if (state.hideOff && offT.length) o.h = 1;
+    var ht = {};
+    state.basket.forEach(function (id, i) { if (isHead(id)) ht[i] = state.heads[id] || ''; });
+    if (Object.keys(ht).length) o.t = ht;
     if (Object.keys(g).length) o.g = g;
     if (Object.keys(names).length) o.n = names;
     if (Object.keys(pins).length) o.p = pins;
@@ -599,6 +612,8 @@ tr.sub td { background: var(--bg); }
           if (has(pid)) (inc.pins[gid] = inc.pins[gid] || {})[sid] = pid;
         });
       });
+      inc.heads = {};
+      if (v2 && o.t && typeof o.t === 'object') Object.keys(o.t).forEach(function (k) { var id = inc.basket[+k]; if (isHead(id) && typeof o.t[k] === 'string') inc.heads[id] = o.t[k].slice(0, 80); });
       inc.off = []; inc.qty = []; inc.hide = false;
       if (v2) {
         var tokOf = function (k) {
@@ -613,12 +628,13 @@ tr.sub td { background: var(--bg); }
     }).catch(function () { return null; });
   }
   function applyIncoming(inc, mode) {
-    if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; state.off = {}; state.qty = {}; state.hideOff = false; }
+    if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; state.off = {}; state.qty = {}; state.heads = {}; state.hideOff = false; }
     var ns = 'i' + Date.now().toString(36);   // keeps imported group ids apart from this device's own
     var rename = function (g) { return ns + g; };
     inc.basket.forEach(function (id) { if (state.basket.indexOf(id) === -1 && state.basket.length < MAX_BASKET) state.basket.push(id); });
     Object.keys(inc.groups).forEach(function (id) { state.groups[id] = rename(inc.groups[id]); });
     Object.keys(inc.names).forEach(function (id) { state.names[id] = inc.names[id]; });
+    Object.keys(inc.heads || {}).forEach(function (id) { if (state.basket.indexOf(id) !== -1) state.heads[id] = inc.heads[id]; });
     Object.keys(inc.pins).forEach(function (g) { state.pins[rename(g)] = Object.assign(state.pins[rename(g)] || {}, inc.pins[g]); });
     var tokName = function (t) { return t.g ? 'g:' + rename(t.g) : t.id; };
     (inc.off || []).forEach(function (t) { state.off[tokName(t)] = 1; });
@@ -758,7 +774,7 @@ tr.sub td { background: var(--bg); }
   }
   function updatePrune() {
     var pb = $('printbtn');
-    pb.hidden = !printData.length || !printData[0].rows.length;
+    pb.hidden = !printData.length || !printData[0].rows.some(function (r) { return !r.head; });
     var b = $('prune'), n = unusedMembers().length;
     b.hidden = !n;
     if (n) b.firstChild.textContent = 'נקה ' + n + ' פריטים שלא בשימוש';
@@ -769,7 +785,7 @@ tr.sub td { background: var(--bg); }
     var ids = basketIds();
     updateStamp();
     updateNotes();
-    var lost = state.basket.filter(function (id) { return !productById(id); });
+    var lost = state.basket.filter(function (id) { return !isHead(id) && !productById(id); });
     var lb = $('lostbar');
     if (lost.length) {
       lb.hidden = false;
@@ -786,7 +802,7 @@ tr.sub td { background: var(--bg); }
       summary.hidden = true;
       return;
     }
-    if (!ids.length) {
+    if (!ids.some(function (id) { return !isHead(id); })) {
       host.innerHTML = '<div class="empty"><strong>הסל ריק</strong>חפש מוצר בשדה למעלה כדי להתחיל להשוות מחירים.</div>';
       summary.hidden = true;
       return;
@@ -800,6 +816,7 @@ tr.sub td { background: var(--bg); }
     /* units: one product, or a group of alternatives (the cheapest one in each store counts) */
     var units = [], unitIndex = {}, rows = [];
     ids.forEach(function (id) {
+      if (isHead(id)) { units.push({ ids: [id], group: null, head: true }); return; }
       var g = groupOf(id);
       if (g) {
         if (unitIndex[g] === undefined) { unitIndex[g] = units.length; units.push({ ids: [], group: g }); }
@@ -809,8 +826,9 @@ tr.sub td { background: var(--bg); }
       }
     });
     units.forEach(function (u) { u.ids.forEach(function (id) { rows.push(id); }); });
-    units.forEach(function (u) { u.tok = u.group ? 'g:' + u.group : u.ids[0]; u.off = !!state.off[u.tok]; u.q = state.qty[u.tok] || 1; });
-    var activeUnits = units.filter(function (u) { return !u.off; }).length, offUnits = units.length - activeUnits;
+    units.forEach(function (u) { u.tok = u.group ? 'g:' + u.group : u.ids[0]; u.off = !u.head && !!state.off[u.tok]; u.q = state.qty[u.tok] || 1; });
+    var prodUnits = units.filter(function (u) { return !u.head; });
+    var activeUnits = prodUnits.filter(function (u) { return !u.off; }).length, offUnits = prodUnits.length - activeUnits;
     lastUnits = units;
 
     function unitPrice(u, s) {
@@ -831,6 +849,7 @@ tr.sub td { background: var(--bg); }
     var stats = stores.map(function (s) {
       var sum = 0, missing = 0, counted = {};
       units.forEach(function (u) {
+        if (u.head) return;
         var up = unitPrice(u, s);
         if (u.group) counted[u.group] = up;
         if (u.off) return;
@@ -843,9 +862,11 @@ tr.sub td { background: var(--bg); }
     var totals = stats;
     /* shopping list per store: active rows in table order, the variant each store counts */
     printData = stats.map(function (t) {
-      var rowsP = [];
+      var rowsP = [], pendingHead = null;
       units.forEach(function (u) {
+        if (u.head) { pendingHead = state.heads[u.ids[0]] || ''; return; }
         if (u.off) return;
+        if (pendingHead !== null) { if (pendingHead) rowsP.push({ head: true, n: pendingHead }); pendingHead = null; }   // a title is printed only when an active row follows it
         var up = unitPrice(u, t.s), p = up.id && productById(up.id), p0 = productById(u.ids[0]);
         var nm = p ? p.name + (p.size ? ' ' + p.size : '') : p0.name;
         rowsP.push({ n: nm, q: u.q, unit: up.price, price: up.price == null ? null : up.price * u.q, w: !!(p && p.w), many: u.ids.length > 1 ? u.ids.length : 0 });
@@ -917,6 +938,13 @@ tr.sub td { background: var(--bg); }
 
     var anyOpen = false;
     units.forEach(function (u, ui) {
+      if (u.head) {
+        var htl = state.heads[u.ids[0]] || '';
+        body += '<tr class="hrow"><td colspan="' + (2 + stores.length) + '"><div class="hwrap">' + cbox(u.tok) + mvHtml(ui) +
+          '<input type="text" class="hin" data-h="' + esc(u.ids[0]) + '" value="' + esc(htl) + '" maxlength="80" placeholder="כותרת" aria-label="כותרת נושא">' +
+          '<button class="rm" type="button" data-rmhead="' + esc(u.ids[0]) + '" aria-label="הסר כותרת">' + xsvg + '</button></div></td></tr>';
+        return;
+      }
       if (u.off && state.hideOff) return;
       if (!u.group) { body += productRow(u.ids[0], null, false, mvHtml(ui), u.off, u.q); return; }
       /* merged group: one row, each store shows the cheapest variant it carries */
@@ -951,11 +979,11 @@ tr.sub td { background: var(--bg); }
 
     var mb = $('mergebar');
     if (mergeSel.length) {
-      var selOff = 0, selOn = 0;
-      mergeSel.forEach(function (t) { if (state.off[t]) selOff++; else selOn++; });
+      var selOff = 0, selOn = 0, selProd = 0;
+      mergeSel.forEach(function (t) { if (isHead(t)) return; selProd++; if (state.off[t]) selOff++; else selOn++; });
       mb.hidden = false;
       mb.innerHTML = '<span>סומנו ' + mergeSel.length + (mergeSel.length === 1 ? ' שורה' : ' שורות') + '</span>' +
-        (mergeSel.length >= 2 ? '<button type="button" class="go" data-merge="1">אחד לשורה אחת</button><button type="button" class="go" data-mvsel="gather" title="מרכז את השורות המסומנות ברצף, אחת אחרי השנייה, בלי לאחד אותן">סדר קבוצה</button>' : '') +
+        (selProd >= 2 ? '<button type="button" class="go" data-merge="1">אחד לשורה אחת</button>' : '') + (mergeSel.length >= 2 ? '<button type="button" class="go" data-mvsel="gather" title="מרכז את השורות המסומנות ברצף, אחת אחרי השנייה, בלי לאחד אותן">סדר קבוצה</button>' : '') +
         '<button type="button" class="go" data-mvsel="up" title="הזז את המסומנות שורה אחת למעלה">▲ למעלה</button><button type="button" class="go" data-mvsel="down" title="הזז את המסומנות שורה אחת למטה">▼ למטה</button>' +
         '<button type="button" class="go" data-mvsel="top">לראש</button><button type="button" class="go" data-mvsel="bottom">לסוף</button>' +
         (selOn ? '<button type="button" class="go" data-hide="1">הסתר מהסיכום</button>' : '') +
@@ -981,6 +1009,11 @@ tr.sub td { background: var(--bg); }
     host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
       (anyOpen ? '<p class="grphint" style="padding:8px 12px">בשורה ממוזגת, בכל חנות נספרת בסכום רק הגרסה שבמסגרת, כברירת מחדל הזולה ביותר שם. המספר באדום הוא התוספת אם תבחר בגרסה אחרת. לחיצה על מחיר של גרסה בחנות מסוימת בוחרת אותה לחנות הזו, ולחיצה נוספת מחזירה לבחירה האוטומטית. "השאר" משאיר גרסה אחת.</p>' : '');
 
+    if (focusHead !== null) {
+      var hi = host.querySelector('input[data-h="' + focusHead.replace(/"/g, '\\"') + '"]');
+      if (hi) { hi.focus(); hi.select(); if (hi.scrollIntoView) hi.scrollIntoView({ block: 'nearest' }); }
+      focusHead = null;
+    }
     if (focusSel) {
       focusSel = false;
       var fc = host.querySelector('input.mg:checked');
@@ -1001,7 +1034,7 @@ tr.sub td { background: var(--bg); }
     /* buying every item where it is cheapest, in as many stores as needed */
     var split = 0, splitOk = true;
     units.forEach(function (u) {
-      if (u.off) return;
+      if (u.head || u.off) return;
       var m = null;
       stores.forEach(function (s) { var up = unitPrice(u, s); if (up.price != null && (m == null || up.price < m)) m = up.price; });
       if (m == null) splitOk = false; else split += m * u.q;
@@ -1153,6 +1186,13 @@ tr.sub td { background: var(--bg); }
       persist(); render();
       return;
     }
+    var rh = e.target.closest('[data-rmhead]');
+    if (rh) {
+      var hid = rh.getAttribute('data-rmhead');
+      state.basket = state.basket.filter(function (x) { return x !== hid; });
+      delete state.heads[hid]; mergeSel = mergeSel.filter(function (t) { return t !== hid; });
+      persist(); render(); return;
+    }
     var mvb = e.target.closest('[data-mv]');
     if (mvb && !mvb.disabled) {
       var dir = mvb.getAttribute('data-mv'), tok = mvb.getAttribute('data-tok');
@@ -1258,6 +1298,25 @@ tr.sub td { background: var(--bg); }
     return true;
   }
   var focusSel = false;
+  var focusHead = null;
+  $('addhead').addEventListener('click', function () {
+    var id = 'h:' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3), at = state.basket.length;
+    var first = null;
+    lastUnits.forEach(function (u) { if (first === null && mergeSel.indexOf(u.tok) !== -1) first = u; });
+    if (first) { var k = state.basket.indexOf(first.ids[0]); if (k !== -1) at = k; }
+    state.basket.splice(at, 0, id);
+    state.heads[id] = 'כותרת חדשה';
+    focusHead = id; persist(); render();
+  });
+  host.addEventListener('change', function (e) {
+    var el = e.target.closest && e.target.closest('input[data-h]');
+    if (!el) return;
+    var t = el.value.trim().slice(0, 80);
+    state.heads[el.getAttribute('data-h')] = t; persist();
+  });
+  host.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.closest && e.target.closest('input[data-h]')) { e.preventDefault(); e.target.blur(); }
+  });
   var qTimer = null, focusQ = null;
   host.addEventListener('input', function (e) {
     var el = e.target.closest && e.target.closest('input[data-q]');
@@ -1292,13 +1351,13 @@ tr.sub td { background: var(--bg); }
     if (e.target.closest('[data-mergecancel]')) { mergeSel = []; render(); return; }
     var hb = e.target.closest('[data-hide]'), ub = e.target.closest('[data-unhide]');
     if (hb || ub) {
-      mergeSel.forEach(function (t) { if (hb) state.off[t] = 1; else delete state.off[t]; });
+      mergeSel.forEach(function (t) { if (isHead(t)) return; if (hb) state.off[t] = 1; else delete state.off[t]; });
       mergeSel = []; persist(); render(); return;
     }
     if (!e.target.closest('[data-merge]')) return;
     var members = [], gids = {};
     mergeSel.forEach(function (t) {
-      if (t.indexOf('g:') === 0) gids[t.slice(2)] = true; else members.push(t);
+      if (t.indexOf('g:') === 0) gids[t.slice(2)] = true; else if (!isHead(t)) members.push(t);
     });
     state.basket.forEach(function (id) { if (gids[state.groups[id]]) members.push(id); });
     var firstG = Object.keys(gids)[0];
@@ -1348,6 +1407,7 @@ tr.sub td { background: var(--bg); }
     var h = '<div class="plist"><h1>רשימת קניות · ' + esc(d.chain) + '</h1><p class="psub">' + esc(d.branch) + ' · ' + esc(cityName) + ' · ' + esc(when) + '</p>' +
       '<table><thead><tr><th class="c">✓</th><th>פריט</th><th class="q">כמות</th>' + (withPrices ? '<th class="n">מחיר</th>' : '') + '</tr></thead><tbody>';
     d.rows.forEach(function (r, i) {
+      if (r.head) { h += '<tr class="hd"><td colspan="' + (withPrices ? 4 : 3) + '">' + esc(r.n) + '</td></tr>'; return; }
       h += '<tr' + (forFile ? ' class="it" data-i="' + i + '"' : '') + '><td class="c"><span class="box"></span></td><td>' + esc(r.n) + (r.w ? ' <small>(לפי משקל)</small>' : '') + '</td><td class="q">' + r.q + '</td>' +
         (withPrices ? '<td class="n">' + (r.price == null ? '<small>אין במלאי</small>' : fmt(r.price) + (r.q !== 1 ? '<br><small>' + fmt(r.unit) + ' ליח׳</small>' : '')) + '</td>' : '') + '</tr>';
     });
@@ -1355,7 +1415,7 @@ tr.sub td { background: var(--bg); }
       '<p class="pfoot">המחירים מבוססים על קבצי שקיפות מחירים, עשויים להשתנות בסניף.</p></div>';
     return h;
   }
-  var PRINT_CSS = '.plist{font-family:Arial,Helvetica,sans-serif;color:#000;direction:rtl}.plist h1{font-size:22px;margin:0 0 4px}.psub{margin:0 0 14px;color:#444}' +
+  var PRINT_CSS = '.plist tr.hd td{background:#e9e9e9;font-weight:700;font-size:16px;border-top:2px solid #000;border-bottom:1px solid #000}.plist{font-family:Arial,Helvetica,sans-serif;color:#000;direction:rtl}.plist h1{font-size:22px;margin:0 0 4px}.psub{margin:0 0 14px;color:#444}' +
     '.plist table{width:100%;border-collapse:collapse}.plist th,.plist td{border-bottom:1px solid #bbb;padding:7px 6px;text-align:right;font-size:15px}' +
     '.plist th{border-bottom:2px solid #000}.plist .c{width:28px;text-align:center}.plist .q{width:56px;text-align:center;font-weight:700}.plist .n{text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums}' +
     '.plist tfoot td{font-weight:700;border-top:2px solid #000;border-bottom:0}.plist .box{display:inline-block;width:14px;height:14px;border:1.5px solid #000;border-radius:3px}' +
@@ -1420,7 +1480,7 @@ tr.sub td { background: var(--bg); }
     sel.innerHTML = printData.map(function (d, i) {
       return '<option value="' + i + '">' + esc(d.label) + ' · ' + fmt(d.sum) + (d.missing ? ' (חסרים ' + d.missing + ')' : '') + '</option>';
     }).join('');
-    $('printNote').textContent = 'יודפסו ' + printData[0].rows.length + ' שורות פעילות בלבד. שורות שהוסתרו מהסיכום לא נכללות.';
+    $('printNote').textContent = 'יודפסו ' + printData[0].rows.filter(function (r) { return !r.head; }).length + ' שורות פעילות בלבד. שורות שהוסתרו מהסיכום לא נכללות.';
     if (pdlg.showModal) pdlg.showModal(); else pdlg.setAttribute('open', '');
   });
   $('printGo').addEventListener('click', function () {
