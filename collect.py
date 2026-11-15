@@ -464,7 +464,11 @@ def main() -> int:
         except Exception as exc:
             return job, None, str(exc)[:200]
 
-    longest: dict[str, str] = {}   # barcode -> the longest spelling of its name seen in any city
+    # barcode -> the longest spelling of its name. Seeded from the last published run, so a full name learned once
+    # (e.g. in a city whose branch spells it out) is kept even when a later run covers fewer cities.
+    learned_prev = fetch_prev(args.prev_base, "names-full.json")
+    longest: dict[str, str] = {k: v for k, v in (learned_prev or {}).items() if isinstance(k, str) and isinstance(v, str)}
+    learned: dict[str, str] = dict(longest)     # what gets published for the next run
     file_ts: dict[tuple, object] = {}   # (chain, store id) -> when the portal published the file we used
     counters = {slug: {"ok": 0, "failed": 0, "error": None} for slug in chains_cfg}
     pool = ThreadPoolExecutor(WORKERS)
@@ -625,7 +629,10 @@ def main() -> int:
             if all(v is None for v in row):
                 continue
             for nm_ in names[g]:
-                if len(nm_) > len(longest.get(g, "")):
+                l_ = longest.get(g, "")
+                if nm_ != l_ and l_ and (l_.startswith(nm_) or nm_.startswith(l_)):
+                    learned[g] = max(l_, nm_, key=len)      # this barcode is spelled both cut and in full somewhere
+                if len(nm_) > len(l_):
                     longest[g] = nm_
             prod = {"id": g, "n": best_name(names[g]), "p": row}
             if g in sizes:
@@ -658,7 +665,9 @@ def main() -> int:
     pool.shutdown()
     try:
         done_ = complete_names(out, index_cities, longest)
-        log(f"[names] {done_} cut-off product names completed from the same barcode in other cities")
+        log(f"[names] {done_} cut-off product names completed from the same barcode in other cities "
+            f"({len(learned)} full names remembered for later runs)")
+        (out / "names-full.json").write_text(json.dumps(learned, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     except Exception as exc:  # cosmetic step: never fail the run over it
         log(f"[names] skipped: {exc}")
     for slug in chains_cfg:
