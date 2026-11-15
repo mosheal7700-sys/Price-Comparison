@@ -262,7 +262,8 @@ tr.sub td { background: var(--bg); }
       <div class="pdbtns">
         <button type="button" class="btn" id="printGo">הדפס</button>
         <button type="button" class="btn ghost" id="printSave">שמור כקובץ</button>
-        <button type="button" class="btn ghost" id="printWa" title="פותח את וואטסאפ עם הרשימה כהודעת טקסט">שתף בוואטסאפ</button>
+        <button type="button" class="btn ghost" id="printWaFile" title="שולח את הקובץ עם סימון ✓ בוואטסאפ: בוחרים נמען ושולחים">שלח קובץ בוואטסאפ</button>
+        <button type="button" class="btn ghost" id="printWa" title="פותח את וואטסאפ עם הרשימה כהודעת טקסט">שלח כטקסט</button>
         <button type="submit" class="btn ghost" value="close">סגור</button>
       </div>
     </form>
@@ -1511,8 +1512,7 @@ tr.sub td { background: var(--bg); }
       navigator.clipboard.writeText(text).then(function () { toast('הרשימה ארוכה, לכן הועתקה. הדבק אותה בשיחה בוואטסאפ.', 8000); opened(); }, function () { toast('לא ניתן להעתיק את הרשימה. השתמש ב"שמור כקובץ".'); });
     } else { toast('הרשימה ארוכה מדי לקישור. השתמש ב"שמור כקובץ".'); }
   });
-  $('printSave').addEventListener('click', function () {
-    var d = printData[+$('printStore').value]; if (!d) return;
+  function buildFile(d) {
     var key = 'shoplist:' + d.label + ':' + state.city + ':' + new Date().toISOString().slice(0, 10);
     var fileJs = '(function(){var K=' + JSON.stringify(key) + ',done={};try{done=JSON.parse(localStorage.getItem(K)||"{}")}catch(e){}' +
       'var rows=[].slice.call(document.querySelectorAll("tr.it")),bar=document.getElementById("cnt");' +
@@ -1525,12 +1525,34 @@ tr.sub td { background: var(--bg); }
       '@media print{.tools{display:none}}';
     var html = '<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>רשימת קניות</title><style>' + fileCss + PRINT_CSS + '</style></head><body>' +
       '<div class="tools"><span id="cnt"></span><button type="button" id="clr">נקה סימונים</button></div>' + listHtml(d, $('printPrices').checked, true) + '<script>' + fileJs.replace(/<\//g, '<\\/') + '</' + 'script></body></html>';
-    var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), a = document.createElement('a');
-    a.href = url; a.download = 'רשימת-קניות-' + d.chain + '.html';
+    return { html: html, name: 'רשימת-קניות-' + d.chain + '.html' };
+  }
+  function downloadFile(f) {
+    var url = URL.createObjectURL(new Blob([f.html], { type: 'text/html;charset=utf-8' })), a = document.createElement('a');
+    a.href = url; a.download = f.name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  $('printSave').addEventListener('click', function () {
+    var d = printData[+$('printStore').value]; if (!d) return;
+    downloadFile(buildFile(d));
     if (pdlg.close) pdlg.close();
     toast('הקובץ נשמר. בפתיחה בדפדפן אפשר לסמן פריטים בלחיצה, או להדפיס');
+  });
+  $('printWaFile').addEventListener('click', function () {
+    var d = printData[+$('printStore').value]; if (!d) return;
+    var f = buildFile(d), file = null;
+    try { file = new File([f.html], f.name, { type: 'text/html' }); } catch (e) {}
+    var fallback = function () {
+      downloadFile(f);
+      if (pdlg.close) pdlg.close();
+      toast('הקובץ נשמר. בוואטסאפ לחץ על סיכת הצירוף ובחר אותו מההורדות.', 9000);
+      window.open('https://wa.me/', '_blank', 'noopener');
+    };
+    if (file && navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'רשימת קניות · ' + d.chain }).then(function () { if (pdlg.close) pdlg.close(); },
+        function (e) { if (e && e.name === 'AbortError') return; dbg('SHARE FAILED: ' + e); fallback(); });
+    } else fallback();
   });
   $('prune').addEventListener('click', function () {
     var un = unusedMembers();
