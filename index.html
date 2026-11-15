@@ -120,6 +120,9 @@ th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: c
 thead th { background: var(--surface); font-weight: 600; vertical-align: bottom; position: sticky; top: 0; z-index: 3; box-shadow: 0 1px 0 var(--line); }
 th.prod, td.prod { text-align: right; position: sticky; right: 0; background: var(--surface); z-index: 2; min-width: 170px; border-left: 1px solid var(--line); }
 thead th.prod { z-index: 4; }
+.allbtns { display: flex; gap: 6px; margin-top: 4px; }
+.allbtns button { font: inherit; font-size: 11px; font-weight: 600; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: inherit; cursor: pointer; }
+.allbtns button:disabled { opacity: .4; cursor: default; }
 tfoot td { position: sticky; bottom: 0; z-index: 2; }
 tfoot td.prod { z-index: 4; }
 .chain { font-weight: 700; font-size: 14px; }
@@ -876,7 +879,7 @@ tr.sub td { background: var(--bg); }
       return { label: t.s.chain.name + ' · ' + t.s.branch, chain: t.s.chain.name, branch: t.s.branch, rows: rowsP, sum: t.sum, missing: t.missing };
     });
 
-    var head = '<th class="prod" scope="col">מוצר</th><th class="qty" scope="col">כמות</th>';
+    var head = '<th class="prod" scope="col">מוצר' + (prodUnits.length ? '<div class="allbtns"><button type="button" data-alloff="1"' + (activeUnits ? '' : ' disabled') + ' title="הסר את כל הרשימה מהסיכום, ואז החזר רק פריטים נבחרים">הסתר הכל</button><button type="button" data-allon="1"' + (offUnits ? '' : ' disabled') + ' title="החזר את כל הרשימה לסיכום">החזר הכל</button></div>' : '') + '</th><th class="qty" scope="col">כמות</th>';
     stores.forEach(function (s) {
       head += '<th scope="col"><div class="chain">' + esc(s.chain.name) + '</div><div class="branch">' + esc(s.branch) + '</div>' +
         (s.stale ? '<span class="miss" title="לא התקבל עדכון חדש מהרשת, מוצגים נתונים קודמים">נתונים ישנים</span>' : oldFile(s)) + '</th>';
@@ -1341,6 +1344,13 @@ tr.sub td { background: var(--bg); }
     if ((state.qty[t] || 1) === n) return;   // already applied (also stops a re-render while the table is being rebuilt)
     if (n === 1) delete state.qty[t]; else state.qty[t] = n;
     persist(); render();
+  });
+  host.addEventListener('click', function (e) {
+    var ab = e.target.closest('[data-alloff],[data-allon]');
+    if (!ab || ab.disabled) return;
+    if (ab.hasAttribute('data-alloff')) lastUnits.forEach(function (u) { if (!u.head) state.off[u.tok] = 1; });
+    else { state.off = {}; state.hideOff = false; }
+    mergeSel = []; persist(); render();
   });
   summary.addEventListener('click', function (e) {
     if (e.target.closest('[data-toggleoff]')) { state.hideOff = !state.hideOff; mergeSel = []; persist(); render(); return; }
