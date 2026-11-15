@@ -245,6 +245,7 @@ tr.sub td { background: var(--bg); }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2"/></svg>
         <span>העבר סל</span>
       </button>
+      <button class="btn ghost" id="bookmark" type="button" title="מעדכן את כתובת הדף כך שתכיל את הסל, ואז אפשר לשמור סימנייה בדפדפן"><span>שמור לסימניות</span></button>
       <button class="btn ghost" id="addhead" type="button" title="מוסיף שורת כותרת נושא לטבלה (נכנסת גם לרשימת ההדפסה ולקובץ). אם סומנה שורה, הכותרת תתווסף מעליה"><span>הוסף כותרת</span></button>
       <button class="btn ghost" id="exportitems" type="button" title="מוריד לקובץ Excel את כל הפריטים של העיר שנבחרה, כולל ברקוד ומחיר בכל סניף"><span>הורד פריטי העיר (Excel)</span></button>
       <button class="btn ghost" id="printbtn" type="button" hidden title="הדפסה או שמירה של רשימת הקניות לחנות שתבחר"><span>רשימת קניות להדפסה</span></button>
@@ -643,11 +644,11 @@ tr.sub td { background: var(--bg); }
     if (mode === 'replace' && liveIndex.cities.some(function (c) { return c.name === inc.city; })) state.city = inc.city;
   }
   var toastTimer = null, pendingImport = null, incomingNotice = '';
-  function toast(msg) {
+  function toast(msg, ms) {
     var t = $('toast');
     t.textContent = msg; t.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.hidden = true; }, 3500);
+    toastTimer = setTimeout(function () { t.hidden = true; }, ms || 3500);
   }
 
   /* ---------- Elements ---------- */
@@ -1518,6 +1519,13 @@ tr.sub td { background: var(--bg); }
     un.forEach(function (id) { delete state.names[id]; });
     persist(); render();
     toast('הוסרו ' + un.length + ' פריטים');
+  });
+  $('bookmark').addEventListener('click', function () {
+    shareLink().then(function (link) {
+      try { history.replaceState(null, '', link); } catch (e) { toast('הדפדפן לא מאפשר לעדכן את הכתובת. אפשר להשתמש ב"העבר סל"'); return; }
+      var mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+      toast('הכתובת מכילה עכשיו את הסל. לחץ ' + (mac ? '⌘+D' : 'Ctrl+D') + ' כדי לשמור סימנייה (בטלפון: תפריט הדפדפן ← הוסף סימנייה). בפתיחת הסימנייה בחר "החלף את הסל שלי".', 12000);
+    });
   });
   $('share').addEventListener('click', function () {
     if (!state.basket.length) { toast('הסל ריק. הוסף מוצרים ואז העבר אותו'); return; }
