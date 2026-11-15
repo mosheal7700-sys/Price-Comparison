@@ -318,6 +318,8 @@ def main() -> int:
     age_wait = float(cfg.get("stale_retry_wait", 20))
     fuzzy = bool(cfg.get("fuzzy_city_match", True))  # retry with spelling variants when a chain has no branch in a city
     min_chains = int(cfg.get("min_chains", 1))
+    min_city_chains = int(cfg.get("min_city_chains", 1))   # a city is listed on the site only when at least this many chains have a branch there
+    hidden_cities: list[str] = []
     max_products = int(cfg.get("max_products", 0)) or 10**9  # 0 = no limit
     exclude_names = [str(x).strip() for x in cfg.get("exclude_names", ["דמי משלוח"]) if str(x).strip()]   # fees and other non-products
     include_loose = bool(cfg.get("include_unbarcoded", True))
@@ -599,6 +601,13 @@ def main() -> int:
             log(f"[city] {city['name']}: no data, skipped")
             continue
 
+        present_chains = {c[0]["chain"] for c in columns}      # stale columns count: a chain that failed this time still has its last data
+        if len(present_chains) < min_city_chains:
+            hidden_cities.append(f"{city['name']} ({len(present_chains)})")
+            log(f"[city] {city['name']}: only {len(present_chains)} chain(s) with a branch here, min_city_chains={min_city_chains}: not listed")
+            files.clear()
+            prev_cache.pop(city['key'], None)
+            continue
         fresh_chains = {c[0]["chain"] for c in columns if c[2]}
         need = min(min_chains, max(1, len(fresh_chains)))
         need_loose = min(loose_min_chains, max(1, len(fresh_chains)))
@@ -733,6 +742,8 @@ def main() -> int:
         prev_cache.pop(city['key'], None)
 
     pool.shutdown()
+    if hidden_cities:
+        log(f"[cities] not listed (fewer than {min_city_chains} chains): " + ", ".join(hidden_cities))
     try:
         done_ = complete_names(out, index_cities, longest)
         log(f"[names] {done_} cut-off product names completed from the same barcode in other cities "
