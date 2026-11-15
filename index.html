@@ -1045,7 +1045,7 @@ tr.sub td { background: var(--bg); }
       if (m == null) splitOk = false; else split += m * u.q;
     });
 
-    var offNote = offUnits ? '<span class="txt offnote">' + offUnits + (offUnits === 1 ? ' שורה מוסתרת' : ' שורות מוסתרות') + ' מהסיכום' + (state.hideOff ? ' (לא מוצגות בטבלה)' : '') + '<button type="button" data-toggleoff="1">' + (state.hideOff ? 'הצג מוסתרות' : 'החבא לגמרי') + '</button><button type="button" data-showall="1">החזר הכל</button></span>' : '';
+    var offNote = offUnits ? '<span class="txt offnote">' + offUnits + (offUnits === 1 ? ' שורה מוסתרת' : ' שורות מוסתרות') + ' מהסיכום' + (state.hideOff ? ' (לא מוצגות בטבלה)' : '') + '<button type="button" data-toggleoff="1">' + (state.hideOff ? 'הצג מוסתרות' : 'החבא לגמרי') + '</button></span>' : '';
     if (!activeUnits) {
       summary.hidden = false;
       summary.innerHTML = '<span class="txt">כל השורות מוסתרות מהסיכום. סמן שורות ולחץ "החזר לסיכום".</span>' + offNote;
@@ -1354,8 +1354,6 @@ tr.sub td { background: var(--bg); }
   });
   summary.addEventListener('click', function (e) {
     if (e.target.closest('[data-toggleoff]')) { state.hideOff = !state.hideOff; mergeSel = []; persist(); render(); return; }
-    if (!e.target.closest('[data-showall]')) return;
-    state.off = {}; state.hideOff = false; persist(); render();
   });
   $('mergebar').addEventListener('click', function (e) {
     var msb = e.target.closest('[data-mvsel]');
