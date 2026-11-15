@@ -177,6 +177,26 @@ def best_name(votes: Counter) -> str:
     return max(names, key=lambda n: (score[n], len(n)))
 
 
+def complete_names(out: Path, index_cities: list, longest: dict) -> int:
+    """Some branches publish product names cut short (often at 20 characters) while another branch of the
+    same chain, in another city, publishes the full text for the same barcode. After every city is built,
+    replace a cut name with the longer one that starts with it."""
+    fixed = 0
+    for c in index_cities:
+        path = out / c["file"]
+        data = json.loads(path.read_text(encoding="utf-8"))
+        changed = False
+        for p in data.get("products", []):
+            full = longest.get(p["id"])
+            if full and len(full) > len(p["n"]) and full.startswith(p["n"]):
+                p["n"] = full
+                changed = True
+                fixed += 1
+        if changed:
+            path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return fixed
+
+
 def _is_code(v) -> bool:
     return bool(re.fullmatch(r"\d+", str(v or "").strip())) and str(v).strip().lstrip("0") != ""
 
@@ -444,6 +464,7 @@ def main() -> int:
         except Exception as exc:
             return job, None, str(exc)[:200]
 
+    longest: dict[str, str] = {}   # barcode -> the longest spelling of its name seen in any city
     file_ts: dict[tuple, object] = {}   # (chain, store id) -> when the portal published the file we used
     counters = {slug: {"ok": 0, "failed": 0, "error": None} for slug in chains_cfg}
     pool = ThreadPoolExecutor(WORKERS)
@@ -603,6 +624,9 @@ def main() -> int:
             row = [c[1].get(g) for c in columns]
             if all(v is None for v in row):
                 continue
+            for nm_ in names[g]:
+                if len(nm_) > len(longest.get(g, "")):
+                    longest[g] = nm_
             prod = {"id": g, "n": best_name(names[g]), "p": row}
             if g in sizes:
                 prod["s"] = sizes[g].most_common(1)[0][0]
@@ -632,6 +656,11 @@ def main() -> int:
         prev_cache.pop(city['key'], None)
 
     pool.shutdown()
+    try:
+        done_ = complete_names(out, index_cities, longest)
+        log(f"[names] {done_} cut-off product names completed from the same barcode in other cities")
+    except Exception as exc:  # cosmetic step: never fail the run over it
+        log(f"[names] skipped: {exc}")
     for slug in chains_cfg:
         c = counters[slug]
         if status[slug]["ok"] and c["failed"] and not c["ok"]:
