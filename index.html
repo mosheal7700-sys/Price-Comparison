@@ -262,8 +262,7 @@ tr.sub td { background: var(--bg); }
       <div class="pdbtns">
         <button type="button" class="btn" id="printGo">הדפס</button>
         <button type="button" class="btn ghost" id="printSave">שמור כקובץ</button>
-        <button type="button" class="btn ghost" id="printWaFile" title="שולח את הקובץ עם סימון ✓ בוואטסאפ: בוחרים נמען ושולחים">שלח קובץ בוואטסאפ</button>
-        <button type="button" class="btn ghost" id="printWa" title="פותח את וואטסאפ עם הרשימה כהודעת טקסט">שלח כטקסט</button>
+        <button type="button" class="btn ghost" id="printWaFile" title="שולח את הקובץ עם סימון ✓ בוואטסאפ: בוחרים נמען ושולחים">שלח בוואטסאפ</button>
         <button type="submit" class="btn ghost" value="close">סגור</button>
       </div>
     </form>
@@ -1491,26 +1490,6 @@ tr.sub td { background: var(--bg); }
     $('printarea').innerHTML = listHtml(d, $('printPrices').checked);
     if (pdlg.close) pdlg.close();
     setTimeout(function () { window.print(); }, 50);
-  });
-  $('printWa').addEventListener('click', function () {
-    var d = printData[+$('printStore').value]; if (!d) return;
-    var withPrices = $('printPrices').checked;
-    var lines = ['*רשימת קניות · ' + d.chain + '*', d.branch + ' · ' + state.city + ' · ' + new Date().toLocaleDateString('he-IL'), ''];
-    d.rows.forEach(function (r) {
-      if (r.head) { lines.push('', '*' + r.n + '*'); return; }
-      var t = '⬜ ' + r.n + (r.q !== 1 ? ' ×' + r.q : '');
-      if (withPrices) t += ' — ' + (r.price == null ? 'אין במלאי' : fmt(r.price));
-      lines.push(t);
-    });
-    if (withPrices) lines.push('', '*סה״כ ' + fmt(d.sum) + '*' + (d.missing ? ' (חסרים ' + d.missing + ' פריטים בחנות זו)' : ''));
-    var text = lines.join('\n'), url = 'https://wa.me/?text=' + encodeURIComponent(text);
-    if (pdlg.close) pdlg.close();
-    if (url.length <= 6000) { window.open(url, '_blank', 'noopener'); return; }
-    // a very long list may not fit in a link: copy it and open WhatsApp, the message is pasted there
-    var opened = function () { window.open('https://wa.me/', '_blank', 'noopener'); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { toast('הרשימה ארוכה, לכן הועתקה. הדבק אותה בשיחה בוואטסאפ.', 8000); opened(); }, function () { toast('לא ניתן להעתיק את הרשימה. השתמש ב"שמור כקובץ".'); });
-    } else { toast('הרשימה ארוכה מדי לקישור. השתמש ב"שמור כקובץ".'); }
   });
   function buildFile(d) {
     var key = 'shoplist:' + d.label + ':' + state.city + ':' + new Date().toISOString().slice(0, 10);
