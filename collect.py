@@ -24,6 +24,7 @@ import os
 import re
 import sys
 import time
+import threading
 import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -454,11 +455,63 @@ def main() -> int:
 
     # 3. one city at a time: download its price files, write the city file, free the memory.
     # (Holding every parsed price file at once would not fit in the memory of a GitHub runner.)
+    # When a portal answers "no PriceFull file for store N" for most stores of a chain (a flaky or truncated
+    # listing, often when many sessions ask at once), the chain is listed once, one request at a time, and the
+    # stores are looked up in that single listing.
+    chain_lists: dict[str, list] = {}
+    chain_lock = threading.Lock()
+    diag_done: set[str] = set()
+
+    def chain_listing(chain, ad):
+        with chain_lock:
+            if chain not in chain_lists:
+                refs = []
+                for i in range(3):
+                    try:
+                        refs = list(ad.iter_files(file_type=ilp.FileType.PRICE_FULL))
+                    except Exception as exc:
+                        log(f"[listing] {chain}: attempt {i + 1} failed: {str(exc)[:120]}")
+                        refs = []
+                    if refs:
+                        break
+                    time.sleep(RETRY_DELAY * (i + 1))
+                chain_lists[chain] = refs
+                log(f"[listing] {chain}: one full listing, {len(refs)} PriceFull files for {len({r.store_id for r in refs})} stores")
+            return chain_lists[chain]
+
+    def from_listing(chain, sid, ad):
+        if not hasattr(ad, "iter_files"):
+            return None
+        from israeli_prices.chains.base import same_store
+        best = None
+        for r in chain_listing(chain, ad):
+            if same_store(r.store_id, sid) and (best is None or (r.published_at and (best.published_at is None or r.published_at > best.published_at))):
+                best = r
+        return best
+
     def price_task(job):
         chain, sid = job
         try:
             ad = ilp.get_adapter(chain)
-            ref, age = fetch_fresh(ad, ilp.FileType.PRICE_FULL, sid, max_age_h, age_tries, age_wait)
+            try:
+                ref, age = fetch_fresh(ad, ilp.FileType.PRICE_FULL, sid, max_age_h, age_tries, age_wait)
+            except Exception as exc:
+                if "no PriceFull" not in str(exc):
+                    raise
+                ref = from_listing(chain, sid, ad)
+                if ref is None:
+                    with chain_lock:
+                        first = chain not in diag_done
+                        diag_done.add(chain)
+                    if first and hasattr(ad, "iter_files"):
+                        try:
+                            names = [r.name for r in ad.iter_files(store_id=sid)][:6]
+                        except Exception as e2:
+                            names = [f"(listing failed: {str(e2)[:80]})"]
+                        log(f"[listing] {chain}/{sid}: no PriceFull in the portal; files listed for this store: {names or 'none'}")
+                    raise
+                age = _age_hours(ref.published_at)
+                log(f"[listing] {chain}/{sid}: found in the chain-wide listing after the per-store listing missed it")
             pf = ilp.parse(retry(lambda: ad.download(ref)))
             file_ts[job] = ref.published_at
             if age is not None and age > max_age_h:
@@ -499,21 +552,34 @@ def main() -> int:
         for e in entries:
             by_chain.setdefault(e["chain"], []).append(e)
         entries, extras = [], {}
+        # a branch that failed to download this time is shown from the last published data (marked stale), so that
+        # a chain with two columns (e.g. an extra_branches branch) never silently drops to one
+        failed_any = any((e["chain"], e["store_id"]) not in files for es_ in by_chain.values() for e in es_)
+        prev = get_prev(city["key"]) if failed_any else None
+        prev_idx = {}
+        if prev:
+            prev_idx = {s["id"]: i for i, s in enumerate(prev.get("stores", []))}
         for ch, es in by_chain.items():
             got = [e for e in es if (e["chain"], e["store_id"]) in files]
             if got:
                 got.sort(key=lambda e: (not e.get("pin"), -len(files[(e["chain"], e["store_id"])].items)))
                 add = [e for e in got if e.get("extra")]          # extra_branches: always a column of their own
                 main = [e for e in got if not e.get("extra")]
-                entries += main[:per_chain] + add
+                kept = main[:per_chain] + add
                 if fill_gaps:
                     extras[ch] = [files[(e["chain"], e["store_id"])] for e in main[per_chain:]]
             else:
-                entries += es[:per_chain]
-        prev = get_prev(city["key"]) if any((e["chain"], e["store_id"]) not in files for e in entries) else None
-        prev_idx = {}
-        if prev:
-            prev_idx = {s["id"]: i for i, s in enumerate(prev.get("stores", []))}
+                kept = []
+            if prev_idx:
+                miss_x = [e for e in es if e.get("extra") and (e["chain"], e["store_id"]) not in files and f'{e["chain"]}:{e["store_id"]}' in prev_idx]
+                room = per_chain - len([e for e in kept if not e.get("extra")])
+                miss_m = [e for e in es if not e.get("extra") and (e["chain"], e["store_id"]) not in files and f'{e["chain"]}:{e["store_id"]}' in prev_idx][:max(0, room)]
+                kept += miss_x + miss_m
+                if miss_x or miss_m:
+                    log(f"[stale] {city['name']}/{ch}: {len(miss_x) + len(miss_m)} branch(es) not downloaded, shown from the previous run")
+            if not kept:
+                kept = es[:per_chain]
+            entries += kept
 
         columns = []  # (store dict, {gtin: price}, fresh)
         names: dict[str, Counter] = {}
