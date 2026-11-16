@@ -59,7 +59,9 @@ h1 { font-family: var(--font-display); font-size: 28px; line-height: 1.2; margin
 @media (min-width: 760px) { header { flex-wrap: nowrap; align-items: flex-start; } .refresh-wrap { flex: 1; min-width: 0; justify-content: flex-end; } }
 .pimg { width: 104px; height: 104px; flex: none; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .pimg[hidden] { display: none; }
-.pimg img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pimg { position: relative; }
+.pimg img { max-width: 100%; max-height: 88%; object-fit: contain; }
+.pcred { position: absolute; bottom: 2px; inset-inline: 0; text-align: center; font-size: 9px; color: #555; text-decoration: none; background: rgba(255,255,255,.85); }
 .stamp { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 button { font-family: inherit; font-size: 15px; cursor: pointer; }
 .btn {
@@ -258,7 +260,7 @@ tr.sub td { background: var(--bg); }
       <button class="btn ghost" id="printbtn" type="button" hidden title="הדפסה או שמירה של רשימת הקניות לחנות שתבחר"><span>רשימת קניות להדפסה</span></button>
       <button class="btn ghost" id="prune" type="button" hidden title="מסיר משורות ממוזגות את הפריטים שלא הזולים באף חנות ולא נבחרו ידנית"><span></span></button>
     </div>
-    <div class="pimg" id="pimg" hidden><img id="pimgimg" alt="" referrerpolicy="no-referrer"></div>
+    <div class="pimg" id="pimg" hidden><img id="pimgimg" alt="" referrerpolicy="no-referrer"><a class="pcred" href="https://world.openfoodfacts.org/" target="_blank" rel="noopener" title="התמונה מ-Open Food Facts, רישיון CC BY-SA">Open Food Facts</a></div>
   </header>
   <dialog id="printdlg" class="printdlg">
     <form method="dialog" id="printform">
