@@ -183,6 +183,7 @@ tfoot td.best { background: var(--accent); color: var(--accent-fg); }
   #printarea { display: block !important; color: #000; background: #fff; }
   @page { margin: 12mm; }
 }
+.mergebar select.go { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); font-weight: 600; max-width: 180px; }
 .tgtbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 4px 10px; border-radius: 10px; background: #e4f3ec; color: var(--accent); font-size: 13px; }
 .tgtbar button { display: inline-flex; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 2px; }
 tr.hrow.tgt td { background: #e4f3ec; }
@@ -1014,6 +1015,7 @@ tr.sub td { background: var(--bg); }
         (selProd >= 2 ? '<button type="button" class="go" data-merge="1">אחד לשורה אחת</button>' : '') + (mergeSel.length >= 2 ? '<button type="button" class="go" data-mvsel="gather" title="מרכז את השורות המסומנות ברצף, אחת אחרי השנייה, בלי לאחד אותן">סדר קבוצה</button>' : '') +
         '<button type="button" class="go" data-mvsel="up" title="הזז את המסומנות שורה אחת למעלה">▲ למעלה</button><button type="button" class="go" data-mvsel="down" title="הזז את המסומנות שורה אחת למטה">▼ למטה</button>' +
         '<button type="button" class="go" data-mvsel="top">לראש</button><button type="button" class="go" data-mvsel="bottom">לסוף</button>' +
+        (selProd && lastUnits.some(function (u) { return u.head; }) ? '<select class="go" data-togroup="1" aria-label="העבר לקבוצה"><option value="">העבר לקבוצה…</option>' + lastUnits.filter(function (u) { return u.head; }).map(function (u) { return '<option value="' + esc(u.ids[0]) + '">' + esc(state.heads[u.ids[0]] || 'כותרת') + '</option>'; }).join('') + '<option value="-">בלי קבוצה (לפני הכותרת הראשונה)</option></select>' : '') +
         (selOn ? '<button type="button" class="go" data-hide="1">הסתר מהסיכום</button>' : '') +
         (selOff ? '<button type="button" class="go" data-unhide="1">החזר לסיכום</button>' : '') +
         '<button type="button" class="no" data-mergecancel="1">בטל</button>';
@@ -1100,8 +1102,9 @@ tr.sub td { background: var(--bg); }
 
   /* every word must appear anywhere in the name, in any order; words that start a word rank first */
   function nf(s) { return s.replace(/ך/g, 'כ').replace(/ם/g, 'מ').replace(/ן/g, 'נ').replace(/ף/g, 'פ').replace(/ץ/g, 'צ'); }
-  function search(words) {
+  function search(words, inBasket) {
     var hits = [];
+    var skip = function (id) { return (state.basket.indexOf(id) !== -1) !== !!inBasket; };   /* default: leave out what is already in the basket */
     /* a typed plural or feminine ending is dropped, so "מלפפונים" also finds "מלפפון" and "עגבניה" finds "עגבניות" */
     words = words.map(nf).map(function (w) {
       if (w.length > 4 && (w.slice(-2) === 'ימ' || w.slice(-2) === 'ות')) return w.slice(0, -2);
@@ -1109,7 +1112,7 @@ tr.sub td { background: var(--bg); }
       return w;
     });
     catalog.forEach(function (p) {
-      if (state.basket.indexOf(p.id) !== -1) return;
+      if (skip(p.id)) return;
       var name = p.k || (p.k = nf(p.name)), notStart = 0, first = 0;
       for (var i = 0; i < words.length; i++) {
         var at = name.indexOf(words[i]);
@@ -1126,7 +1129,7 @@ tr.sub td { background: var(--bg); }
     if (num) {
       var codeHits = [];
       catalog.forEach(function (p) {
-        if (state.basket.indexOf(p.id) !== -1 || !/^\d{8,14}$/.test(p.id)) return;
+        if (skip(p.id) || !/^\d{8,14}$/.test(p.id)) return;
         var core = p.id.replace(/^0+/, ''), at = core.indexOf(num);
         if (at >= 0) codeHits.push({ p: p, r: core === num ? 0 : (at === 0 ? 1 : 2) });
       });
@@ -1140,13 +1143,14 @@ tr.sub td { background: var(--bg); }
     var term = q.value.trim();
     if (!term) { closeList(); return; }
     var words = term.split(/\s+/).filter(Boolean);
-    var all = search(words);
+    var all = search(words), already = search(words, true);
     shown = all.slice(0, LIMIT);
     var top = keepScroll ? results.scrollTop : 0;
     var html = '';
     if (sel.length) html += '<li class="bar" role="option" data-addsel="1">הוסף ' + sel.length + (sel.length === 1 ? ' מוצר' : ' מוצרים להשוואה') + '</li>';
+    var inb = already.length ? '<li class="none" role="option" aria-disabled="true">כבר בסל (' + already.length + '): ' + esc(already.slice(0, 3).map(function (p) { return p.name; }).join(' · ')) + (already.length > 3 ? '…' : '') + '. אם אינם מוצגים, בדוק קבוצה מכווצת או "הצג מוסתרות".</li>' : '';
     if (!shown.length) {
-      html += '<li class="none" role="option" aria-disabled="true">לא נמצאו מוצרים תואמים</li>';
+      html += '<li class="none" role="option" aria-disabled="true">לא נמצאו מוצרים תואמים</li>' + inb;
     } else {
       shown.forEach(function (p, i) {
         var m = minPriceFor(p.id);
@@ -1352,6 +1356,24 @@ tr.sub td { background: var(--bg); }
     applyOrder(order);
     return true;
   }
+  /* move the selected rows to the end of a group (headId), or out of every group (the area before the first heading) when headId is '' */
+  function moveToGroup(headId) {
+    var sel = {}; mergeSel.forEach(function (t) { sel[t] = 1; });
+    var order = lastUnits.slice();
+    var picked = order.filter(function (x) { return sel[x.tok] && !x.head; });
+    if (!picked.length) return false;
+    var rest = order.filter(function (x) { return !(sel[x.tok] && !x.head); });
+    var at = rest.length;
+    if (!headId) { rest.forEach(function (x, k) { if (x.head && at === rest.length) at = k; }); }
+    else {
+      var hi = -1; rest.forEach(function (x, k) { if (x.head && x.ids[0] === headId) hi = k; });
+      if (hi === -1) return false;
+      at = hi + 1; while (at < rest.length && !rest[at].head) at++;
+    }
+    rest.splice.apply(rest, [at, 0].concat(picked));
+    applyOrder(rest);
+    return true;
+  }
   var focusSel = false;
   var focusHead = null;
   $('addhead').addEventListener('click', function () {
@@ -1423,6 +1445,12 @@ tr.sub td { background: var(--bg); }
   });
   summary.addEventListener('click', function (e) {
     if (e.target.closest('[data-toggleoff]')) { state.hideOff = !state.hideOff; mergeSel = []; persist(); render(); return; }
+  });
+  $('mergebar').addEventListener('change', function (e) {
+    var sl = e.target.closest('[data-togroup]');
+    if (!sl || !sl.value) return;
+    var dest = sl.value === '-' ? '' : sl.value;
+    if (moveToGroup(dest)) { if (dest && state.fold[dest]) mergeSel = []; else focusSel = true; persist(); render(); } else render();
   });
   $('mergebar').addEventListener('click', function (e) {
     var msb = e.target.closest('[data-mvsel]');
