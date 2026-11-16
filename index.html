@@ -56,12 +56,6 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 h1 { font-family: var(--font-display); font-size: 28px; line-height: 1.2; margin: 0; font-weight: 700; text-wrap: balance; }
 .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .refresh-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-@media (min-width: 760px) { header { flex-wrap: nowrap; align-items: flex-start; } .refresh-wrap { flex: 1; min-width: 0; justify-content: flex-end; } }
-.pimg { width: 104px; height: 104px; flex: none; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.pimg[hidden] { display: none; }
-.pimg { position: relative; }
-.pimg img { max-width: 100%; max-height: 88%; object-fit: contain; }
-.pcred { position: absolute; bottom: 2px; inset-inline: 0; text-align: center; font-size: 9px; color: #555; text-decoration: none; background: rgba(255,255,255,.85); }
 .stamp { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 button { font-family: inherit; font-size: 15px; cursor: pointer; }
 .btn {
@@ -260,7 +254,6 @@ tr.sub td { background: var(--bg); }
       <button class="btn ghost" id="printbtn" type="button" hidden title="הדפסה או שמירה של רשימת הקניות לחנות שתבחר"><span>רשימת קניות להדפסה</span></button>
       <button class="btn ghost" id="prune" type="button" hidden title="מסיר משורות ממוזגות את הפריטים שלא הזולים באף חנות ולא נבחרו ידנית"><span></span></button>
     </div>
-    <div class="pimg" id="pimg" hidden><img id="pimgimg" alt="" referrerpolicy="no-referrer"><a class="pcred" href="https://world.openfoodfacts.org/" target="_blank" rel="noopener" title="התמונה מ-Open Food Facts, רישיון CC BY-SA">Open Food Facts</a></div>
   </header>
   <dialog id="printdlg" class="printdlg">
     <form method="dialog" id="printform">
@@ -1071,48 +1064,12 @@ tr.sub td { background: var(--bg); }
 
   /* ---------- Search dropdown ---------- */
 
-  /* ---------- Product picture (Open Food Facts, by barcode; nothing is shown when there is none) ---------- */
+  /* ---------- Barcode as printed on the package (used by the barcode search) ---------- */
   function eanOf(id) {
     if (!/^\d{8,14}$/.test(id)) return '';
     if (id.length < 14) return id;
     var core = id.replace(/^0+/, '');
     return core.length <= 8 ? ('00000000' + core).slice(-8) : (core.length <= 12 && id.slice(0, 2) === '00' ? ('000000000000' + core).slice(-12) : ('0000000000000' + core).slice(-13));
-  }
-  var IMG_KEY = 'cheap-basket-img', imgMem = {}, imgSeq = 0;
-  function imgStore(set) {
-    try {
-      var o = JSON.parse(localStorage.getItem(IMG_KEY) || '{}');
-      if (!set) return o;
-      var keys = Object.keys(o); if (keys.length > 800) keys.sort(function (a, b) { return o[a][1] - o[b][1]; }).slice(0, 200).forEach(function (k) { delete o[k]; });
-      o[set[0]] = [set[1], Date.now()]; localStorage.setItem(IMG_KEY, JSON.stringify(o)); return o;
-    } catch (e) { return {}; }
-  }
-  function lookupImage(ean, cb) {
-    if (ean in imgMem) { cb(imgMem[ean]); return; }
-    var c = imgStore()[ean];
-    if (c && Date.now() - c[1] < (c[0] ? 14 : 2) * 864e5) { imgMem[ean] = c[0]; cb(c[0]); return; }
-    var codes = [ean.length < 13 && ean.length > 8 ? ('0000000000000' + ean).slice(-13) : ean];
-    if (codes.indexOf(ean) === -1) codes.push(ean);
-    var done = function (url) { imgMem[ean] = url; imgStore([ean, url]); cb(url); };
-    (function next(i) {
-      if (i >= codes.length) { done(''); return; }
-      fetch('https://world.openfoodfacts.org/api/v2/product/' + codes[i] + '.json?fields=image_front_small_url,image_front_url', { mode: 'cors' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (j) { var pr = j && j.product, u = pr && (pr.image_front_small_url || pr.image_front_url); if (u) done(u); else next(i + 1); })
-        .catch(function () { cb(''); });   // offline or blocked: show nothing, ask again next time
-    })(0);
-  }
-  var pimg = $('pimg'), pimgimg = $('pimgimg');
-  function showPicture(id) {
-    var my = ++imgSeq, ean = id ? eanOf(id) : '';
-    if (!ean) { pimg.hidden = true; return; }
-    lookupImage(ean, function (url) {
-      if (my !== imgSeq) return;
-      if (!url) { pimg.hidden = true; return; }
-      pimgimg.onerror = function () { pimg.hidden = true; };
-      pimgimg.onload = function () { if (my === imgSeq) pimg.hidden = false; };
-      pimgimg.src = url;
-    });
   }
   var LIMIT = 100;
   var active = -1, shown = [], sel = [];
@@ -1188,7 +1145,6 @@ tr.sub td { background: var(--bg); }
     results.innerHTML = html;
     results.hidden = false;
     results.scrollTop = top;
-    if (active >= 0 && shown[active]) showPicture(shown[active].id);
     q.setAttribute('aria-expanded', 'true');
   }
   function addProducts(list) {
@@ -1196,7 +1152,6 @@ tr.sub td { background: var(--bg); }
     if (!list.length) return;
     var gid = list.length > 1 ? 'g' + Date.now().toString(36) : null;
     list.forEach(function (id) { state.basket.push(id); if (gid) state.groups[id] = gid; });
-    showPicture(list[0]);
     q.value = '';
     closeList();
     persist();
@@ -1220,10 +1175,6 @@ tr.sub td { background: var(--bg); }
       if (pick) addProducts([pick.id]);
     }
     else if (e.key === 'Escape') { closeList(); }
-  });
-  results.addEventListener('mouseover', function (e) {
-    var li = e.target.closest('li[data-add]');
-    if (li) showPicture(li.getAttribute('data-add'));
   });
   results.addEventListener('mousedown', function (e) {
     if (e.target.closest('li[data-addsel]')) { e.preventDefault(); addProducts(sel.slice()); return; }
