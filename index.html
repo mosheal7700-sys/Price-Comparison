@@ -1104,7 +1104,8 @@ tr.sub td { background: var(--bg); }
   function nf(s) { return s.replace(/ך/g, 'כ').replace(/ם/g, 'מ').replace(/ן/g, 'נ').replace(/ף/g, 'פ').replace(/ץ/g, 'צ'); }
   function search(words, inBasket) {
     var hits = [];
-    var skip = function (id) { return (state.basket.indexOf(id) !== -1) !== !!inBasket; };   /* default: leave out what is already in the basket */
+    var inSet = {}; state.basket.forEach(function (id) { inSet[id] = 1; });   /* one lookup table instead of a scan of the basket per product */
+    var skip = function (id) { return (inSet[id] === 1) !== !!inBasket; };   /* default: leave out what is already in the basket */
     /* a typed plural or feminine ending is dropped, so "מלפפונים" also finds "מלפפון" and "עגבניה" finds "עגבניות" */
     words = words.map(nf).map(function (w) {
       if (w.length > 4 && (w.slice(-2) === 'ימ' || w.slice(-2) === 'ות')) return w.slice(0, -2);
@@ -1143,7 +1144,7 @@ tr.sub td { background: var(--bg); }
     var term = q.value.trim();
     if (!term) { closeList(); return; }
     var words = term.split(/\s+/).filter(Boolean);
-    var all = search(words), already = search(words, true);
+    var all = search(words), already = all.length ? [] : search(words, true);   /* the second pass only when nothing else was found */
     shown = all.slice(0, LIMIT);
     var top = keepScroll ? results.scrollTop : 0;
     var html = '';
@@ -1182,6 +1183,8 @@ tr.sub td { background: var(--bg); }
     if (target) {   /* the end of the target group: just before the next heading */
       var hi = state.basket.indexOf(target);
       if (hi !== -1) { at = hi + 1; while (at < state.basket.length && !isHead(state.basket[at])) at++; }
+    } else {        /* no target: stay out of every group, i.e. the end of the area before the first heading */
+      for (var hj = 0; hj < state.basket.length; hj++) if (isHead(state.basket[hj])) { at = hj; break; }
     }
     list.forEach(function (id, k) { state.basket.splice(at + k, 0, id); if (gid) state.groups[id] = gid; });
     q.value = '';
@@ -1383,6 +1386,7 @@ tr.sub td { background: var(--bg); }
     if (first) { var k = state.basket.indexOf(first.ids[0]); if (k !== -1) at = k; }
     state.basket.splice(at, 0, id);
     state.heads[id] = 'כותרת חדשה';
+    target = id;   /* items added next go under the new heading (cancel with ✕ on the bar above the search) */
     focusHead = id; persist(); render();
   });
   host.addEventListener('change', function (e) {
