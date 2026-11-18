@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>סטטוס איסוף הנתונים · הסל הזול</title>
+<style>
+  :root { --bg: #f6f7f5; --fg: #1d2a24; --muted: #5d6b64; --line: #d8dfda; --ok: #1f7a4d; --bad: #b3261e; --warn: #8a5a00; --surface: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151b18; --fg: #e8eeea; --muted: #9aa8a0; --line: #2c3631; --ok: #5cc08a; --bad: #ff8a80; --warn: #e0b04a; --surface: #1d2622; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, "Segoe UI", Arial, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p { color: var(--muted); margin: 4px 0 14px; }
+  a { color: inherit; }
+  .wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; }
+  th, td { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-weight: 700; background: var(--surface); position: sticky; top: 0; }
+  th:first-child, td:first-child { text-align: right; }
+  tr:last-child td { border-bottom: 0; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 700; }
+  .warn { color: var(--warn); font-weight: 600; }
+  .err { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <h1>סטטוס איסוף הנתונים</h1>
+  <p id="sub">טוען…</p>
+  <div class="wrap"><table id="t"></table></div>
+  <p>בכל תא: מספר קבצי המחירים שהורדו בהצלחה, ואחריהם (באדום) מספר אלה שנכשלו. תא ריק "✗" פירושו שאף קובץ לא ירד באותה הפעלה, והנתונים באתר נשארו מההפעלה הקודמת (מסומנים "נתונים ישנים"). השעה היא שעת תחילת האיסוף בהפעלה. <a href="./">חזרה לאתר</a></p>
+</main>
+<script>
+(function () {
+  var sub = document.getElementById('sub'), t = document.getElementById('t');
+  function esc(x) { return String(x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  fetch('data/index.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (ix) {
+    var hist = Array.isArray(ix.history) ? ix.history.slice().reverse() : [];
+    if (!hist.length) { sub.textContent = 'עדיין אין היסטוריה. היא תיווצר החל מההפעלה הבאה.'; return; }
+    var names = {}, order = [];
+    Object.keys(ix.chains || {}).forEach(function (k) { order.push(k); names[k] = (ix.chains[k] && ix.chains[k].name) || k; });
+    hist.forEach(function (h) { Object.keys(h.c || {}).forEach(function (k) { if (order.indexOf(k) === -1) { order.push(k); names[k] = k; } }); });
+    sub.textContent = hist.length + ' הפעלות אחרונות, מהחדשה לישנה.';
+    var html = '<thead><tr><th>זמן</th>' + order.map(function (k) { return '<th>' + esc(names[k]) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    hist.forEach(function (h) {
+      var d = new Date(h.t);
+      html += '<tr><td>' + esc(d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })) + '</td>';
+      order.forEach(function (k) {
+        var v = (h.c || {})[k];
+        if (!v) { html += '<td>·</td>'; return; }
+        var ok = v[0] | 0, bad = v[1] | 0;
+        if (!ok) html += '<td class="bad">✗' + (bad ? ' <span class="err">(' + bad + ')</span>' : '') + '</td>';
+        else html += '<td class="ok">' + ok + (bad ? ' <span class="warn">/ ' + bad + '</span>' : '') + '</td>';
+      });
+      html += '</tr>';
+    });
+    t.innerHTML = html + '</tbody>';
+  }).catch(function () { sub.textContent = 'לא ניתן לטעון את נתוני הסטטוס.'; });
+})();
+</script>
+</body>
+</html>

@@ -710,6 +710,13 @@ tr.sub td { background: var(--bg); }
     }
   }
   /* a branch whose newest published file is more than ~a day and a half older than the run: show its date */
+  /* when a stale column's data was collected (from the last run that had it) */
+  function staleWhen(s, short) {
+    var t = s.asOf ? new Date(s.asOf) : null;
+    if (!t || isNaN(t)) return '';
+    var day = t.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }), hm = t.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    return short ? ' · ' + day + ' ' + hm : ' (נאספו ב-' + day + ' בשעה ' + hm + ')';
+  }
   function oldFile(s) {
     if (!s.ts || !liveIndex || !liveIndex.generated_at) return '';
     var t = Date.parse(s.ts), g = Date.parse(liveIndex.generated_at);
@@ -900,7 +907,7 @@ tr.sub td { background: var(--bg); }
     var head = '<th class="prod" scope="col">מוצר' + (prodUnits.length ? '<div class="allbtns"><button type="button" data-alloff="1"' + (activeUnits ? '' : ' disabled') + ' title="הסר את כל הרשימה מהסיכום, ואז החזר רק פריטים נבחרים">הסתר הכל</button><button type="button" data-allon="1"' + (offUnits ? '' : ' disabled') + ' title="החזר את כל הרשימה לסיכום">החזר הכל</button>' + (units.some(function (u) { return u.head; }) ? '<button type="button" data-foldall="1" title="כווץ את כל הקבוצות לכותרות בלבד">כווץ קבוצות</button><button type="button" data-unfoldall="1"' + (Object.keys(state.fold).length ? '' : ' disabled') + ' title="פתח את כל הקבוצות">פתח קבוצות</button>' : '') + '</div>' : '') + '</th><th class="qty" scope="col">כמות</th>';
     stores.forEach(function (s) {
       head += '<th scope="col"><div class="chain">' + esc(s.chain.name) + '</div><div class="branch">' + esc(s.branch) + '</div>' +
-        (s.stale ? '<span class="miss" title="לא התקבל עדכון חדש מהרשת, מוצגים נתונים קודמים">נתונים ישנים</span>' : oldFile(s)) + '</th>';
+        (s.stale ? '<span class="miss" title="לא התקבל עדכון חדש מהרשת, מוצגים נתונים קודמים' + staleWhen(s, false) + '">נתונים ישנים' + staleWhen(s, true) + '</span>' : oldFile(s)) + '</th>';
     });
 
     var body = '';

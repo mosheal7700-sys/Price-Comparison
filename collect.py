@@ -660,7 +660,8 @@ def main() -> int:
                     if v is not None:
                         prices[p["id"]] = v
                 sd["stale"] = True
-                sd["as_of"] = prev.get("updated_at")
+                # keep the time the data really comes from, also when it has been carried over several runs
+                sd["as_of"] = prev["stores"][col].get("as_of") or prev.get("updated_at")
                 columns.append((sd, prices, False))
 
         if not columns:
@@ -831,7 +832,13 @@ def main() -> int:
         log(f"  {slug}: " + ("ok" if st["ok"] else "FAILED") +
             f" (files ok {st.get('branches_ok', 0)}, failed {st.get('branches_failed', 0)})" +
             (f" - {st['error']}" if st.get("error") else ""))
-    index = {"generated_at": now, "cities": index_cities, "chains": status}
+    # the last runs, to see when a chain's portal is up or down (shown by status.html): [files ok, files failed] per chain
+    hist = []
+    prev_index = fetch_prev(args.prev_base, "index.json")
+    if isinstance(prev_index, dict) and isinstance(prev_index.get("history"), list):
+        hist = [h for h in prev_index["history"] if isinstance(h, dict) and h.get("t") != now][-79:]
+    hist.append({"t": now, "c": {slug: [status[slug].get("branches_ok", 0), status[slug].get("branches_failed", 0)] for slug in chains_cfg}})
+    index = {"generated_at": now, "cities": index_cities, "chains": status, "history": hist}
     (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     log(f"done: {len(index_cities)} cities written to {out}")
     return 0
