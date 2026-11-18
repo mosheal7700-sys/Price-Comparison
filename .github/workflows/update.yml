@@ -3,11 +3,13 @@ name: עדכון מחירים ופרסום האתר
 on:
   schedule:
     - cron: "17 */2 * * *"   # כל שעתיים (GitHub מדלג על חלק מההרצות המתוזמנות, כך מתקבל בפועל עדכון כל כמה שעות)
+    - cron: "27 3-8 * * *"    # חלון בוקר, כל שעה בדקה 27, 03:27-08:27 UTC = 05:27-10:27 בשעון חורף (06:27-11:27 בקיץ). בודק מתי פורטל אושר עד חוזר לעבוד אחרי הלילה (ראה status.html); אפשר להסיר אחר כך
   workflow_dispatch:           # הרצה ידנית מלשונית Actions
   push:
     branches: [main]
     paths:
       - index.html
+      - status.html
       - collect.py
       - config.json
       - requirements.txt
@@ -44,7 +46,7 @@ jobs:
         run: python collect.py --out site/data --prev-base "$PREV_BASE"
 
       - name: הרכבת האתר
-        run: cp index.html site/index.html
+        run: cp index.html status.html site/
 
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -59,4 +61,3 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-
