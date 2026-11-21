@@ -2,18 +2,19 @@ name: עדכון מחירים ופרסום האתר
 
 on:
   schedule:
-   - cron: "6 */2 * * *"
-   - cron: "12 */2 * * *"
-   - cron: "17 */2 * * *"
-   - cron: "23 */2 * * *" 
-   - cron: "29 */2 * * *"   # כל שעתיים (GitHub מדלג על חלק מההרצות המתוזמנות, כך מתקבל בפועל עדכון כל כמה שעות)
-   - cron: "36 */2 * * *"
-   - cron: "43 */2 * * *"
-   - cron: "49 */2 * * *"
-   - cron: "54 */2 * * *" 
-   - cron: "59 */2 * * *"
-
-   - cron: "27 3-8 * * *"    # חלון בוקר, כל שעה בדקה 27, 03:27-08:27 UTC = 05:27-10:27 בשעון חורף (06:27-11:27 בקיץ). בודק מתי פורטל אושר עד חוזר לעבוד אחרי הלילה (ראה status.html); אפשר להסיר אחר כך
+    # 10 תזמונים, בדקות שונות, בערך כל 12 דקות במשך שעתיים (שעות UTC): GitHub מדלג על חלק מההרצות המתוזמנות ומאחר אחרות,
+    # ולכן מנסים הרבה פעמים. שלב 'בדיקת מרווח' מדלג על ניסיון אם האיסוף האחרון היה לפני פחות מ-MIN_GAP_MIN דקות,
+    # כך שבפועל רץ איסוף אחד לכל כשעתיים, ואם ניסיון נכשל או נדחה, הבא אחריו (בעוד כ-12 דקות) יפעל במקומו.
+    - cron: "7 */2 * * *"
+    - cron: "19 */2 * * *"
+    - cron: "31 */2 * * *"
+    - cron: "43 */2 * * *"
+    - cron: "55 */2 * * *"
+    - cron: "3 1-23/2 * * *"
+    - cron: "13 1-23/2 * * *"
+    - cron: "25 1-23/2 * * *"
+    - cron: "37 1-23/2 * * *"
+    - cron: "49 1-23/2 * * *"
   workflow_dispatch:           # הרצה ידנית מלשונית Actions
   push:
     branches: [main]
@@ -24,18 +25,45 @@ on:
       - config.json
       - requirements.txt
       - .github/workflows/update.yml
+      - scripts/guard.py
 
 permissions:
   contents: read
+  actions: read          # כדי שבדיקת המרווח תקרא את היסטוריית ההרצות
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
+  guard:
+    # מדלג על ניסיון מתוזמן אם איסוף (שלב build) התחיל לפני פחות מ-MIN_GAP_MIN דקות או עדיין רץ. הנתון נלקח מהיסטוריית ההרצות
+    # של GitHub (לא מקובץ מטמון), כדי ששני ניסיונות לא יאספו יחד. הרצה ידנית והעלאה אף פעם לא מדולגות.
+    # הבדיקה לא ממתינה לאיסוף שרץ (אין concurrency כאן), לכן ניסיון שמגיע באמצע איסוף מדלג מיד.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - name: בדיקת מרווח
+        id: g
+        env:
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_FILE: update.yml
+          INDEX_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data/index.json
+          MIN_GAP_MIN: "105"
+        run: python3 scripts/guard.py
+
   build:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
+    concurrency:
+      group: collect
+      cancel-in-progress: false
     # כברירת מחדל רץ על שרתי GitHub. אם הרשתות חוסמות אותם, אפשר להגדיר
     # משתנה מאגר בשם RUNNER_LABEL ולהריץ על מחשב בישראל (self-hosted runner).
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
@@ -64,6 +92,9 @@ jobs:
 
   deploy:
     needs: build
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment:
       name: github-pages
