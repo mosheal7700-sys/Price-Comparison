@@ -5,11 +5,16 @@ on:
     # 10 תזמונים, בדקות שונות, בערך כל 12 דקות במשך שעתיים (שעות UTC): GitHub מדלג על חלק מההרצות המתוזמנות ומאחר אחרות,
     # ולכן מנסים הרבה פעמים. שלב 'בדיקת מרווח' מדלג על ניסיון אם האיסוף האחרון היה לפני פחות מ-MIN_GAP_MIN דקות,
     # כך שבפועל רץ איסוף אחד לכל כשעתיים, ואם ניסיון נכשל או נדחה, הבא אחריו (בעוד כ-12 דקות) יפעל במקומו.
+    - cron: "1 */2 * * *"
     - cron: "7 */2 * * *"
-    - cron: "19 */2 * * *"
+    - cron: "13 */2 * * *"
+    - cron: "18 */2 * * *"
+    - cron: "24 */2 * * *"
     - cron: "31 */2 * * *"
+    - cron: "37 */2 * * *"
     - cron: "43 */2 * * *"
-    - cron: "55 */2 * * *"
+    - cron: "49 */2 * * *"
+    - cron: "56 */2 * * *"
     - cron: "3 1-23/2 * * *"
     - cron: "13 1-23/2 * * *"
     - cron: "25 1-23/2 * * *"
@@ -55,7 +60,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           WORKFLOW_FILE: update.yml
           INDEX_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data/index.json
-          MIN_GAP_MIN: "105"
+          MIN_GAP_MIN: "90"
         run: python3 scripts/guard.py
 
   build:
