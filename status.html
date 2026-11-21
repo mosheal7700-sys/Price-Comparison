@@ -29,23 +29,32 @@
   <h1>סטטוס איסוף הנתונים</h1>
   <p id="sub">טוען…</p>
   <div class="wrap"><table id="t"></table></div>
-  <p>בכל תא: מספר קבצי המחירים שהורדו בהצלחה, ואחריהם (באדום) מספר אלה שנכשלו. תא ריק "✗" פירושו שאף קובץ לא ירד באותה הפעלה, והנתונים באתר נשארו מההפעלה הקודמת (מסומנים "נתונים ישנים"). השעה היא שעת תחילת האיסוף בהפעלה. <a href="./">חזרה לאתר</a></p>
+  <p>בכל תא: מספר קבצי המחירים שהורדו בהצלחה, ואחריהם (באדום) מספר אלה שנכשלו. תא ריק "✗" פירושו שאף קובץ לא ירד באותה הפעלה, והנתונים באתר נשארו מההפעלה הקודמת (מסומנים "נתונים ישנים"). השעה היא שעת תחילת האיסוף בהפעלה. "סוג הפעלה": מתוזמנת, ידנית או העלאת קבצים (הפעלות ישנות שנרשמו לפני שנוסף העמודה מסומנות —). "שעות מהמתוזמנת הקודמת": הזמן מההפעלה המתוזמנת הקודמת עד השורה הזו (ירוק עד 3 שעות, כתום עד 5, אדום מעל זה). הפעלה מתוזמנת שדולגה כי האיסוף האחרון היה לפני פחות משעה וחצי-שעתיים לא נרשמת כאן. <a href="./">חזרה לאתר</a></p>
 </main>
 <script>
 (function () {
   var sub = document.getElementById('sub'), t = document.getElementById('t');
   function esc(x) { return String(x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   fetch('data/index.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (ix) {
-    var hist = Array.isArray(ix.history) ? ix.history.slice().reverse() : [];
+    var chrono = Array.isArray(ix.history) ? ix.history.slice() : [], lastSched = null;
+    /* for every run: how it started, and how many hours passed since the previous SCHEDULED run */
+    chrono.forEach(function (h) {
+      var t = new Date(h.t).getTime();
+      h._gap = lastSched === null ? null : (t - lastSched) / 36e5;
+      if (h.e === 'schedule') lastSched = t;
+    });
+    var hist = chrono.slice().reverse();
     if (!hist.length) { sub.textContent = 'עדיין אין היסטוריה. היא תיווצר החל מההפעלה הבאה.'; return; }
     var names = {}, order = [];
     Object.keys(ix.chains || {}).forEach(function (k) { order.push(k); names[k] = (ix.chains[k] && ix.chains[k].name) || k; });
     hist.forEach(function (h) { Object.keys(h.c || {}).forEach(function (k) { if (order.indexOf(k) === -1) { order.push(k); names[k] = k; } }); });
     sub.textContent = hist.length + ' הפעלות אחרונות, מהחדשה לישנה.';
-    var html = '<thead><tr><th>זמן</th>' + order.map(function (k) { return '<th>' + esc(names[k]) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    var html = '<thead><tr><th>זמן</th><th>סוג הפעלה</th><th>שעות מהמתוזמנת הקודמת</th>' + order.map(function (k) { return '<th>' + esc(names[k]) + '</th>'; }).join('') + '</tr></thead><tbody>';
     hist.forEach(function (h) {
       var d = new Date(h.t);
-      html += '<tr><td>' + esc(d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })) + '</td>';
+      var kind = { schedule: 'מתוזמנת', workflow_dispatch: 'ידנית', push: 'העלאת קבצים' }[h.e] || '—';
+      var gap = h._gap == null ? '—' : '<span class="' + (h._gap > 5 ? 'bad' : h._gap > 3 ? 'warn' : 'ok') + '">' + h._gap.toFixed(1) + '</span>';
+      html += '<tr><td>' + esc(d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })) + '</td><td>' + kind + '</td><td>' + gap + '</td>';
       order.forEach(function (k) {
         var v = (h.c || {})[k];
         if (!v) { html += '<td>·</td>'; return; }

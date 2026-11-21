@@ -837,7 +837,7 @@ def main() -> int:
     prev_index = fetch_prev(args.prev_base, "index.json")
     if isinstance(prev_index, dict) and isinstance(prev_index.get("history"), list):
         hist = [h for h in prev_index["history"] if isinstance(h, dict) and h.get("t") != now][-79:]
-    hist.append({"t": now, "c": {slug: [status[slug].get("branches_ok", 0), status[slug].get("branches_failed", 0)] for slug in chains_cfg}})
+    hist.append({"t": now, "e": os.environ.get("GITHUB_EVENT_NAME", ""), "c": {slug: [status[slug].get("branches_ok", 0), status[slug].get("branches_failed", 0)] for slug in chains_cfg}})
     index = {"generated_at": now, "cities": index_cities, "chains": status, "history": hist}
     (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     log(f"done: {len(index_cities)} cities written to {out}")
