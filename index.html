@@ -149,6 +149,8 @@ tfoot td.prod { background: var(--bg); }
 tfoot td.best { background: var(--accent); color: var(--accent-fg); }
 .tot { font-family: var(--font-display); font-size: 17px; }
 .badge { display: block; font-size: 11px; font-weight: 600; margin-top: 2px; }
+.est { display: block; font-size: 11px; font-weight: 600; margin-top: 3px; color: var(--muted); font-style: italic; }
+.estline { display: block; font-size: 13px; color: var(--muted); }
 .miss { display: block; font-size: 11px; font-weight: 500; margin-top: 2px; background: var(--warn-bg); color: var(--warn-fg); border-radius: 4px; padding: 1px 6px; }
 .empty { padding: 36px 16px; text-align: center; color: var(--muted); }
 .empty strong { display: block; color: var(--fg); font-size: 17px; margin-bottom: 4px; }
@@ -881,7 +883,27 @@ tr.sub td { background: var(--bg); }
         if (u.off) return;
         if (up.price == null) missing++; else sum += up.price * u.q;
       });
-      return { s: s, sum: sum, missing: missing, counted: counted };
+      var est = null;
+      if (missing && activeUnits) {
+        /* an estimate for a store that lacks items: lower bound = the cheapest price in the row, upper bound = the average of the other stores */
+        var lo = sum, hi = sum, ok = true, nAct = 0;
+        units.forEach(function (u) {
+          if (u.head || u.off) return;
+          nAct++;
+          if (unitPrice(u, s).price != null) return;
+          var mn = null, tot = 0, n = 0;
+          stores.forEach(function (o) {
+            if (o === s) return;
+            var pr = unitPrice(u, o).price;
+            if (pr == null) return;
+            tot += pr; n++; if (mn == null || pr < mn) mn = pr;
+          });
+          if (!n) { ok = false; return; }
+          lo += mn * u.q; hi += (tot / n) * u.q;
+        });
+        if (ok && missing <= nAct * 0.25) est = { lo: lo, hi: hi };   // more than a quarter missing: too unreliable to estimate
+      }
+      return { s: s, sum: sum, missing: missing, counted: counted, est: est };
     });
     stats.sort(function (a, b) { return (a.missing - b.missing) || (a.sum - b.sum); });
     stores = stats.map(function (x) { return x.s; });
@@ -1036,7 +1058,8 @@ tr.sub td { background: var(--bg); }
       var isBest = i === bestIdx;
       foot += '<td class="' + (isBest ? 'best' : '') + '"><span class="tot">' + fmt(t.sum) + '</span>' +
         (isBest ? '<span class="badge">הסל הזול ביותר</span>' : '') +
-        (t.missing ? '<span class="miss">חסרים ' + t.missing + ' מוצרים</span>' : '') + '</td>';
+        (t.missing ? '<span class="miss">חסרים ' + t.missing + ' מוצרים</span>' : '') +
+        (t.missing && t.est ? '<span class="est" title="הערכה לסל מלא: הגבול התחתון לפי המחיר הזול בכל שורה חסרה, והעליון לפי ממוצע שאר החנויות באותה שורה. המחירים האלה אינם מוצגים בטבלה.">≈ ' + fmt(t.est.lo) + '–' + fmt(t.est.hi) + ' בהערכה</span>' : '') + '</td>';
     });
 
     host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
@@ -1073,6 +1096,14 @@ tr.sub td { background: var(--bg); }
       if (m == null) splitOk = false; else split += m * u.q;
     });
 
+    /* stores with missing items that may still be cheaper than the cheapest complete basket (or, without a complete basket, the best guesses) */
+    function estLine(bestSum) {
+      var list = totals.filter(function (t) { return t.missing && t.est && (bestSum == null || t.est.lo < bestSum - 0.5); });
+      if (!list.length) return '';
+      list.sort(function (a, b) { return (a.est.lo + a.est.hi) - (b.est.lo + b.est.hi); });
+      return '<span class="estline">' + (bestSum == null ? 'בהערכה (חסרים מוצרים): ' : 'בהערכה, גם סניף עם מוצרים חסרים עשוי להיות זול יותר: ') +
+        list.slice(0, 3).map(function (t) { return '<b>' + esc(t.s.chain.name) + ' · ' + esc(t.s.branch) + '</b> ≈ ' + fmt(t.est.lo) + '–' + fmt(t.est.hi) + ' (חסרים ' + t.missing + ')'; }).join(' · ') + '</span>';
+    }
     var offNote = offUnits ? '<span class="txt offnote">' + offUnits + (offUnits === 1 ? ' שורה מוסתרת' : ' שורות מוסתרות') + ' מהסיכום' + (state.hideOff ? ' (לא מוצגות בטבלה)' : '') + '<button type="button" data-toggleoff="1">' + (state.hideOff ? 'הצג מוסתרות' : 'החבא לגמרי') + '</button></span>' : '';
     if (!activeUnits) {
       summary.hidden = false;
@@ -1083,10 +1114,10 @@ tr.sub td { background: var(--bg); }
       summary.innerHTML = '<span class="big">' + fmt(totals[bestIdx].sum) + '</span>' +
         '<span class="txt"><b>' + esc(bs.chain.name) + ' · ' + esc(bs.branch) + '</b> הוא הסל הזול ביותר ב' + esc(state.city) + '</span>' +
         (save > 0.05 ? '<span class="save">חיסכון של ' + fmt(save) + ' לעומת הסניף היקר ביותר</span>' : '') +
-        (splitOk && splitSave >= 0.5 ? '<span class="save">קנייה מפוצלת, הזול בכל שורה בכמה חנויות: ' + fmt(split) + ' (עוד ' + fmt(splitSave) + ' חיסכון)</span>' : '') + offNote;
+        (splitOk && splitSave >= 0.5 ? '<span class="save">קנייה מפוצלת, הזול בכל שורה בכמה חנויות: ' + fmt(split) + ' (עוד ' + fmt(splitSave) + ' חיסכון)</span>' : '') + estLine(totals[bestIdx].sum) + offNote;
     } else {
       summary.hidden = false;
-      summary.innerHTML = '<span class="txt">אף סניף לא מחזיק את כל המוצרים שבסל. הסר מוצר חסר, או הסתר אותו מהסיכום, כדי לראות סל שלם.</span>' + offNote;
+      summary.innerHTML = '<span class="txt">אף סניף לא מחזיק את כל המוצרים שבסל. הסר מוצר חסר, או הסתר אותו מהסיכום, כדי לראות סל שלם.</span>' + estLine(null) + offNote;
     }
   }
 
