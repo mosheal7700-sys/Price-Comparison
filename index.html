@@ -1615,6 +1615,9 @@ tr.sub td { background: var(--bg); }
         var widths = [18.55, 33, 10.89, 6.78], n = data.head.length, font = { name: 'Arial', size: 12 };
         /* the sample sheet's default font is Arial 12 (digit width 9px); ExcelJS writes a Calibri 11 default (7px), so widths are scaled 9/7 to get the same pixel widths */
         var k = 9 / 7;
+        /* name and package columns fit the longest value (by character count, Arial 12), within sane limits; the rest keep the fixed widths */
+        var fit = function (col, min, max) { var m = 0; data.rows.forEach(function (r) { var l = String(r[col] == null ? '' : r[col]).length; if (l > m) m = l; }); return Math.min(max, Math.max(min, m + 2)); };
+        widths[1] = fit(1, widths[1], 90); widths[2] = fit(2, widths[2], 30);
         ws.columns = data.head.map(function (h, i) { return { width: Math.round((i < 4 ? widths[i] : 7.33) * k * 100) / 100 }; });
         var hr = ws.addRow(data.head);
         hr.height = 75;
