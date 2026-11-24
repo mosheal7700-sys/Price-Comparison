@@ -1617,18 +1617,21 @@ tr.sub td { background: var(--bg); }
         var k = 9 / 7;
         /* name and package columns fit the longest value, but the whole table stays within a width that needs no horizontal scrolling (BUDGET, in Arial-12 digit units);
            names longer than their column wrap onto more lines and the row grows to fit */
-        var BUDGET = 135, fixed = widths[0] + widths[3] + 7.33 * Math.max(0, n - 4);
-        var fit = function (col, min, max) { var m = 0; data.rows.forEach(function (r) { var l = String(r[col] == null ? '' : r[col]).length; if (l > m) m = l; }); return Math.min(max, Math.max(min, m + 3)); };
-        widths[2] = fit(2, widths[2], 16);
-        widths[1] = fit(1, widths[1], Math.max(widths[1], BUDGET - fixed - widths[2]));
-        var lines = function (v, w) { var l = String(v == null ? '' : v).length, per = Math.max(1, Math.floor((w - 1.5) * 0.95)); return Math.max(1, Math.ceil(l / per)); };
-ws.columns = data.head.map(function (h, i) { return { width: Math.round((i < 4 ? widths[i] : 7.33) * k * 100) / 100 }; });
+        var BUDGET = 125;
+        var maxLen = function (col, ok) { var m = 0; data.rows.forEach(function (r) { var v = String(r[col] == null ? '' : r[col]); if (ok(v) && v.length > m) m = v.length; }); return m; };
+        widths[0] = Math.max(10, maxLen(0, function (v) { return /^\d+$/.test(v); }) + 2);    // barcode column fits the longest barcode (the "no barcode" note wraps)
+        widths[2] = 12;                                                                      // package / quantity: at most 12 characters, longer values wrap
+        widths[3] = 5;                                                                       // by-weight: 5 characters, the header wraps
+        var fixed = widths[0] + widths[2] + widths[3] + 7.33 * Math.max(0, n - 4);
+        widths[1] = Math.min(Math.max(33, maxLen(1, function () { return true; }) + 3), Math.max(33, BUDGET - fixed));
+        var lines = function (v, w, tight) { var l = String(v == null ? '' : v).length, per = tight ? Math.floor(w) : Math.max(1, Math.floor((w - 1.5) * 0.95)); return Math.max(1, Math.ceil(l / per)); };
+        ws.columns = data.head.map(function (h, i) { return { width: Math.round((i < 4 ? widths[i] : 7.33) * k * 100) / 100 }; });
         var hr = ws.addRow(data.head);
         hr.height = 75;
         hr.eachCell({ includeEmpty: true }, function (c, i) { c.font = font; c.alignment = { horizontal: i < 3 ? 'right' : 'center', vertical: 'middle', wrapText: true }; });
         data.rows.forEach(function (r) {
           var row = ws.addRow(r.map(function (v) { return v === '' ? null : v; }));
-          row.height = Math.max(19.5, Math.max(lines(r[1], widths[1]), lines(r[2], widths[2])) * 15.75 + 3.75);   // 19.5 for one line, then +15.75 per extra line
+          row.height = Math.max(19.5, Math.max(lines(r[1], widths[1]), lines(r[2], widths[2], true), lines(r[0], widths[0], true)) * 15.75 + 3.75);   // 19.5 for one line, then +15.75 per extra line
           for (var i = 1; i <= n; i++) { var c = row.getCell(i); c.font = font; c.alignment = { horizontal: i < 4 ? 'right' : 'center', vertical: 'middle', wrapText: true }; }
         });
         ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: data.rows.length + 1, column: n } };
