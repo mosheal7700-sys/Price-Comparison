@@ -1613,7 +1613,9 @@ tr.sub td { background: var(--bg); }
       return loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js').then(function () {
         var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('פריטים', { views: [{ rightToLeft: true }] });
         var widths = [18.55, 33, 10.89, 6.78], n = data.head.length, font = { name: 'Arial', size: 12 };
-        ws.columns = data.head.map(function (h, i) { return { width: i < 4 ? widths[i] : 7.33 }; });
+        /* the sample sheet's default font is Arial 12 (digit width 9px); ExcelJS writes a Calibri 11 default (7px), so widths are scaled 9/7 to get the same pixel widths */
+        var k = 9 / 7;
+        ws.columns = data.head.map(function (h, i) { return { width: Math.round((i < 4 ? widths[i] : 7.33) * k * 100) / 100 }; });
         var hr = ws.addRow(data.head);
         hr.height = 75;
         hr.eachCell({ includeEmpty: true }, function (c, i) { c.font = font; c.alignment = { horizontal: i < 3 ? 'right' : 'center', vertical: 'middle', wrapText: true }; });
