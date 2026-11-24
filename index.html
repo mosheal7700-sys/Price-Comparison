@@ -1608,16 +1608,42 @@ tr.sub td { background: var(--bg); }
       saveBlob(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), base + '.csv');
       toast('הורד קובץ CSV (נפתח ב-Excel)');
     };
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js').then(function () {
-      var ws = XLSX.utils.aoa_to_sheet([data.head].concat(data.rows));   // text cells stay text: barcodes keep every digit
-      ws['!cols'] = [{ wch: 16 }, { wch: 48 }, { wch: 16 }, { wch: 9 }, { wch: 10 }, { wch: 14 }].concat(data.head.slice(6).map(function () { return { wch: 18 }; }));
-      ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: data.rows.length, c: data.head.length - 1 } }) };
-      var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'פריטים');
-      wb.Workbook = { Views: [{ RTL: true }] };
-      XLSX.writeFile(wb, base + '.xlsx');
-      toast('הקובץ הורד');
-    }).catch(function () { viaCsv(); });
+    /* styled workbook (ExcelJS): Arial 12, RTL sheet, fixed column widths, tall wrapped header row, fixed data row height */
+    var styledXlsx = function () {
+      return loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js').then(function () {
+        var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('פריטים', { views: [{ rightToLeft: true }] });
+        var widths = [18.55, 33, 10.89, 6.78], n = data.head.length, font = { name: 'Arial', size: 12 };
+        ws.columns = data.head.map(function (h, i) { return { width: i < 4 ? widths[i] : 7.33 }; });
+        var hr = ws.addRow(data.head);
+        hr.height = 75;
+        hr.eachCell({ includeEmpty: true }, function (c, i) { c.font = font; c.alignment = { horizontal: i < 3 ? 'right' : 'center', vertical: 'middle', wrapText: true }; });
+        data.rows.forEach(function (r) {
+          var row = ws.addRow(r.map(function (v) { return v === '' ? null : v; }));
+          row.height = 19.5;
+          for (var i = 1; i <= n; i++) { var c = row.getCell(i); c.font = font; c.alignment = { horizontal: i < 4 ? 'right' : 'center', vertical: 'middle', wrapText: true }; }
+        });
+        ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: data.rows.length + 1, column: n } };
+        return wb.xlsx.writeBuffer();
+      }).then(function (buf) {
+        saveBlob(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), base + '.xlsx');
+        toast('הקובץ הורד');
+      });
+    };
+    /* fallback 1: plain workbook (SheetJS, no styling); fallback 2: CSV */
+    var plainXlsx = function () {
+      return loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js').then(function () {
+        var ws = XLSX.utils.aoa_to_sheet([data.head].concat(data.rows));
+        ws['!cols'] = [{ wch: 18.5 }, { wch: 33 }, { wch: 11 }, { wch: 7 }].concat(data.head.slice(4).map(function () { return { wch: 7.5 }; }));
+        ws['!rows'] = [{ hpt: 75 }];
+        ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: data.rows.length, c: data.head.length - 1 } }) };
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'פריטים');
+        wb.Workbook = { Views: [{ RTL: true }] };
+        XLSX.writeFile(wb, base + '.xlsx');
+        toast('הקובץ הורד');
+      });
+    };
+    styledXlsx().catch(plainXlsx).catch(viaCsv);
   });
   var pdlg = $('printdlg');
   $('printbtn').addEventListener('click', function () {
