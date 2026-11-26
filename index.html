@@ -22,6 +22,7 @@
   --up: #B3261E;
   --down: #0B6B4F;
   --warn-bg: #FFF1D6;
+  --off-bg: #FFF3CF; --off-fg: #7A4A00;
   --warn-fg: #6B4A00;
   --focus: #1A73E8;
   --font-body: "Heebo", "Segoe UI", Arial, sans-serif;
@@ -32,6 +33,7 @@
     --bg: #0E1614; --surface: #15211E; --fg: #E6EFEB; --muted: #93A8A0; --line: #263632;
     --accent: #4CCB98; --accent-fg: #04261B; --best-bg: #14392D; --best-fg: #A9F0D2;
     --up: #FF8A80; --down: #6FE0B0; --warn-bg: #3A2E10; --warn-fg: #FFD98A; --focus: #8AB4F8;
+    --off-bg: #33290F; --off-fg: #FFD98A;
     color-scheme: dark;
   }
 }
@@ -39,6 +41,7 @@
   --bg: #0E1614; --surface: #15211E; --fg: #E6EFEB; --muted: #93A8A0; --line: #263632;
   --accent: #4CCB98; --accent-fg: #04261B; --best-bg: #14392D; --best-fg: #A9F0D2;
   --up: #FF8A80; --down: #6FE0B0; --warn-bg: #3A2E10; --warn-fg: #FFD98A; --focus: #8AB4F8;
+  --off-bg: #33290F; --off-fg: #FFD98A;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -201,9 +204,9 @@ tr.hrow td { background: var(--surface); border-bottom: 2px solid var(--accent);
 th.qty, td.qty { width: 74px; min-width: 74px; padding-inline: 4px; }
 .qin { width: 58px; min-height: 36px; text-align: center; font: inherit; font-weight: 600; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 2px 4px; }
 .each { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
-tr.off td { opacity: .42; }
+tr.off td, tr.off td.prod { background: var(--off-bg); }
 tr.off .price, tr.off td.na { text-decoration: line-through; }
-tr.off td.prod .n::after { content: 'מוסתר מהסיכום'; display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
+tr.off td.prod .n::after { content: 'מוסתר מהסיכום'; display: block; font-size: 12px; font-weight: 700; color: var(--off-fg); }
 .offnote { display: block; font-size: 13px; }
 .offnote button { margin-inline-start: 8px; padding: 2px 12px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 600; cursor: pointer; }
 tr.grp td.prod { box-shadow: inset -3px 0 0 var(--accent); }
