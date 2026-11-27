@@ -133,6 +133,7 @@ tfoot td.prod { z-index: 4; }
 tbody tr:last-child td, tfoot td { border-bottom: 0; }
 .pname { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .pname span.n { min-width: 0; }
+.bc { display: block; color: var(--muted); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
 .wt { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
 .rm {
   flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted);
@@ -959,7 +960,7 @@ tr.sub td { background: var(--bg); }
       prices.forEach(function (pr) { if (pr != null && (min == null || pr < min)) min = pr; });
       var p = productById(pid);
       var h = '<tr class="' + (g ? 'grp' : '') + (asSub ? ' sub' : '') + (off ? ' off' : '') + '"><td class="prod"><div class="pname">' + (asSub ? '' : (mv || '') + cbox(pid)) +
-        '<span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + '</span>' +
+        '<span class="n">' + esc(p.name) + (p.w ? '<small class="wt">לפי משקל</small>' : '') + (eanOf(pid) ? '<small class="bc">' + eanOf(pid) + '</small>' : '') + '</span>' +
         '<span class="acts">' +
         (g ? '<button class="keep" type="button" data-keep="' + esc(pid) + '" title="להשאיר רק את המוצר הזה ולהסיר את שאר המוצרים בהשוואה">השאר</button>' : '') +
         '<button class="rm" type="button" data-rm="' + esc(pid) + '" aria-label="הסר ' + esc(p.name) + ' מהסל">' + xsvg + '</button></span></div></td>' +
@@ -1196,7 +1197,7 @@ tr.sub td { background: var(--bg); }
           : (p.size && p.name.indexOf(p.size) === -1 ? '<span class="size">' + esc(p.size) + '</span>' : '');
         html += '<li role="option" data-add="' + esc(p.id) + '" aria-selected="' + (i === active) + '">' +
           '<span class="pickzone"><input type="checkbox" class="pick" tabindex="-1" aria-label="סמן להשוואה"' + (sel.indexOf(p.id) !== -1 ? ' checked' : '') + '></span>' +
-          '<span class="nm">' + esc(p.name) + sz + (/^\d{4,}$/.test(term) && eanOf(p.id) ? '<span class="size">' + eanOf(p.id) + '</span>' : '') + '<span class="chs">' + (chainsFor(p.id).join(' · ') || 'אין מחיר') + '</span></span>' +
+          '<span class="nm">' + esc(p.name) + sz + (eanOf(p.id) ? '<span class="size">' + eanOf(p.id) + '</span>' : '') + '<span class="chs">' + (chainsFor(p.id).join(' · ') || 'אין מחיר') + '</span></span>' +
           (m != null ? '<span class="from">מ־' + fmt(m) + '</span>' : '') + '</li>';
       });
       if (all.length > shown.length) {
