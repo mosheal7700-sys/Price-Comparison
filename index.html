@@ -200,7 +200,9 @@ button.fold { font: inherit; font-size: 14px; line-height: 1; width: 26px; heigh
 tr.hrow td { background: var(--surface); border-bottom: 2px solid var(--accent); padding: 6px 12px; text-align: right; }
 .hwrap { display: flex; align-items: center; gap: 10px; position: sticky; right: 12px; inline-size: max-content; max-inline-size: calc(100vw - 48px); }
 .hin { font: inherit; font-size: 17px; font-weight: 700; color: var(--accent); border: 1px dashed transparent; background: transparent; border-radius: 8px; padding: 6px 8px; min-width: 180px; max-width: 70vw; }
-.gin { font: inherit; font-weight: inherit; color: inherit; width: 100%; min-width: 0; text-align: right; padding: 1px 2px; border: 0; border-bottom: 1px dashed var(--line); background: transparent; border-radius: 4px; }
+tr.gsum .pname { flex-wrap: wrap; }
+tr.gsum .pname span.n { flex: 1 1 130px; min-width: 130px; }
+.gin { display: block; resize: none; overflow: hidden; line-height: 1.3; font: inherit; font-weight: inherit; color: inherit; width: 100%; min-width: 0; text-align: right; padding: 1px 2px; border: 0; border-bottom: 1px dashed var(--line); background: transparent; border-radius: 4px; }
 .gin:focus { border-bottom-color: var(--accent); background: var(--bg); outline: none; }
 .hin:hover { border-color: var(--line); }
 .hin:focus { border-color: var(--accent); background: var(--bg); outline: none; }
@@ -1027,7 +1029,7 @@ tr.sub td { background: var(--bg); }
       var p0 = productById(u.ids[0]);
       var anyW = u.ids.some(function (id) { return productById(id).w; });
       body += '<tr class="grp gsum' + (u.off ? ' off' : '') + '"><td class="prod"><div class="pname">' + mvHtml(ui) + cbox('g:' + u.group) +
-        '<span class="n"><input type="text" class="gin" data-gt="' + esc(u.group) + '" value="' + esc(state.gt[u.group] || p0.name) + '" maxlength="80" aria-label="שם השורה המאוחדת" title="לחיצה לעריכת שם השורה"><small class="gcount">' + u.ids.length + ' גרסאות' + (anyW ? ' · לפי משקל' : '') + '</small></span>' +
+        '<span class="n"><textarea class="gin" rows="1" data-gt="' + esc(u.group) + '" maxlength="80" aria-label="שם השורה המאוחדת" title="לחיצה לעריכת שם השורה">' + esc(state.gt[u.group] || p0.name) + '</textarea><small class="gcount">' + u.ids.length + ' גרסאות' + (anyW ? ' · לפי משקל' : '') + '</small></span>' +
         '<span class="acts">' +
         '<button class="keep" type="button" data-toggle="' + esc(u.group) + '" aria-expanded="' + open + '" title="הצג או הסתר את הגרסאות ובחר אחת להשאיר">' + (open ? 'הסתר' : 'הצג') + '</button>' +
         '<button class="keep" type="button" data-split="' + esc(u.group) + '" title="פרק לשורות נפרדות">פרק</button>' +
@@ -1081,6 +1083,8 @@ tr.sub td { background: var(--bg); }
     host.innerHTML = '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr>' + foot + '</tr></tfoot></table>' +
       (anyOpen ? '<p class="grphint" style="padding:8px 12px">בשורה ממוזגת, בכל חנות נספרת בסכום רק הגרסה שבמסגרת, כברירת מחדל הזולה ביותר שם. המספר באדום הוא התוספת אם תבחר בגרסה אחרת. לחיצה על מחיר של גרסה בחנות מסוימת בוחרת אותה לחנות הזו, ולחיצה נוספת מחזירה לבחירה האוטומטית. "השאר" משאיר גרסה אחת.</p>' : '');
 
+    var autosize = function (t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; };
+    host.querySelectorAll('textarea.gin').forEach(autosize);
     if (focusHead !== null) {
       var hi = host.querySelector('input[data-h="' + focusHead.replace(/"/g, '\\"') + '"]');
       if (hi) { hi.focus(); hi.select(); if (hi.scrollIntoView) hi.scrollIntoView({ block: 'nearest' }); }
@@ -1440,7 +1444,7 @@ tr.sub td { background: var(--bg); }
     focusHead = id; persist(); render();
   });
   host.addEventListener('change', function (e) {
-    var gi = e.target.closest && e.target.closest('input[data-gt]');
+    var gi = e.target.closest && e.target.closest('textarea[data-gt]');
     if (gi) {
       var gid = gi.getAttribute('data-gt'), gv = gi.value.trim().slice(0, 80);
       if (gv) state.gt[gid] = gv; else delete state.gt[gid];     // empty: back to the first product's name
@@ -1471,10 +1475,12 @@ tr.sub td { background: var(--bg); }
     persist(); render();
   });
   host.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target.closest && e.target.closest('input[data-h], input[data-gt]')) { e.preventDefault(); e.target.blur(); }
+    if (e.key === 'Enter' && e.target.closest && e.target.closest('input[data-h], textarea[data-gt]')) { e.preventDefault(); e.target.blur(); }
   });
   var qTimer = null, focusQ = null;
+  window.addEventListener('resize', function () { host.querySelectorAll('textarea.gin').forEach(function (t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }); });
   host.addEventListener('input', function (e) {
+    if (e.target.matches && e.target.matches('textarea.gin')) { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; return; }
     var el = e.target.closest && e.target.closest('input[data-q]');
     if (!el) return;
     clearTimeout(qTimer);
