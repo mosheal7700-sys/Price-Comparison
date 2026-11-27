@@ -200,6 +200,8 @@ button.fold { font: inherit; font-size: 14px; line-height: 1; width: 26px; heigh
 tr.hrow td { background: var(--surface); border-bottom: 2px solid var(--accent); padding: 6px 12px; text-align: right; }
 .hwrap { display: flex; align-items: center; gap: 10px; position: sticky; right: 12px; inline-size: max-content; max-inline-size: calc(100vw - 48px); }
 .hin { font: inherit; font-size: 17px; font-weight: 700; color: var(--accent); border: 1px dashed transparent; background: transparent; border-radius: 8px; padding: 6px 8px; min-width: 180px; max-width: 70vw; }
+.gin { font: inherit; font-weight: inherit; color: inherit; width: 100%; min-width: 0; text-align: right; padding: 1px 2px; border: 0; border-bottom: 1px dashed var(--line); background: transparent; border-radius: 4px; }
+.gin:focus { border-bottom-color: var(--accent); background: var(--bg); outline: none; }
 .hin:hover { border-color: var(--line); }
 .hin:focus { border-color: var(--accent); background: var(--bg); outline: none; }
 th.qty, td.qty { width: 74px; min-width: 74px; padding-inline: 4px; }
@@ -363,7 +365,7 @@ tr.sub td { background: var(--bg); }
   /* ---------- State ---------- */
   /* groups: product id -> group id. Products in one group are alternatives to each other,
      and only the cheapest of them in each store counts towards that store's basket total. */
-  var state = { city: '', basket: [], groups: {}, names: {}, pins: {}, off: {}, qty: {}, heads: {}, fold: {}, hideOff: false };   // off: rows hidden from the total (group id as 'g:'+id, or product id)   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
+  var state = { city: '', basket: [], groups: {}, names: {}, pins: {}, off: {}, qty: {}, heads: {}, gt: {}, fold: {}, hideOff: false };   // off: rows hidden from the total (group id as 'g:'+id, or product id)   // pins: group id -> store id -> the product chosen by hand for that store   // names: id -> {n, s} of basket items, so an item missing from newer data is not lost silently
   var lastUnits = [];     // the rows of the table as last drawn, for moving them
   var printData = [];
   var lostOpen = false;   // the list of items missing from the data stays folded until the header is tapped
@@ -394,6 +396,8 @@ tr.sub td { background: var(--bg); }
     Object.keys(state.off).forEach(function (t) { if (!tokenAlive(t)) delete state.off[t]; });
     Object.keys(state.qty).forEach(function (t) { if (!tokenAlive(t)) delete state.qty[t]; });
     Object.keys(state.heads).forEach(function (h) { if (state.basket.indexOf(h) === -1) delete state.heads[h]; });
+    var liveG = {}; Object.keys(state.groups).forEach(function (id) { liveG[state.groups[id]] = 1; });
+    Object.keys(state.gt).forEach(function (g) { if (!liveG[g]) delete state.gt[g]; });
     Object.keys(state.fold).forEach(function (h) { if (state.basket.indexOf(h) === -1) delete state.fold[h]; });
     Object.keys(state.pins).forEach(function (g) {
       Object.keys(state.pins[g]).forEach(function (sid) {
@@ -412,7 +416,7 @@ tr.sub td { background: var(--bg); }
     state.off = {};
     state.hideOff = false;
     state.qty = {};
-    state.heads = {};
+    state.heads = {}; state.gt = {};
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved) { dbg('load: nothing saved'); return; }
@@ -441,6 +445,7 @@ tr.sub td { background: var(--bg); }
     if (saved.off && typeof saved.off === 'object') Object.keys(saved.off).forEach(function (t) { if (saved.off[t]) state.off[t] = 1; });
     state.hideOff = !!saved.hideOff;
     if (saved.fold && typeof saved.fold === 'object') Object.keys(saved.fold).forEach(function (h) { if (isHead(h) && saved.fold[h]) state.fold[h] = 1; });
+    if (saved.gt && typeof saved.gt === 'object') Object.keys(saved.gt).forEach(function (g) { if (typeof saved.gt[g] === 'string' && saved.gt[g]) state.gt[g] = saved.gt[g].slice(0, 80); });
     if (saved.heads && typeof saved.heads === 'object') Object.keys(saved.heads).forEach(function (h) { if (isHead(h) && typeof saved.heads[h] === 'string') state.heads[h] = saved.heads[h].slice(0, 80); });
     if (saved.qty && typeof saved.qty === 'object') Object.keys(saved.qty).forEach(function (t) { var n = cleanQty(saved.qty[t]); if (n !== 1) state.qty[t] = n; });
     cleanGroups();
@@ -488,7 +493,7 @@ tr.sub td { background: var(--bg); }
     Object.keys(state.names).forEach(function (id) { if (state.basket.indexOf(id) === -1) delete state.names[id]; });
     cleanGroups();
     cleanGroups();
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins, off: state.off, qty: state.qty, heads: state.heads, fold: state.fold, hideOff: state.hideOff })); }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ city: state.city, basket: state.basket, groups: state.groups, names: state.names, pins: state.pins, off: state.off, qty: state.qty, heads: state.heads, gt: state.gt, fold: state.fold, hideOff: state.hideOff })); }
     catch (e) { dbg('SAVE FAILED: ' + e); try { toast('לא ניתן לשמור את הסל בדפדפן'); } catch (e2) {} return; }
     dbg('save: city=' + state.city + ' basket=' + state.basket.length + ' groups=' + Object.keys(state.groups).length);
   }
@@ -560,6 +565,9 @@ tr.sub td { background: var(--bg); }
     var ht = {};
     state.basket.forEach(function (id, i) { if (isHead(id)) ht[i] = state.heads[id] || ''; });
     if (Object.keys(ht).length) o.t = ht;
+    var gt = {};
+    Object.keys(state.gt).forEach(function (k) { if (k in gmap) gt[gmap[k]] = state.gt[k]; });
+    if (Object.keys(gt).length) o.gt = gt;
     if (Object.keys(g).length) o.g = g;
     if (Object.keys(names).length) o.n = names;
     if (Object.keys(pins).length) o.p = pins;
@@ -632,6 +640,8 @@ tr.sub td { background: var(--bg); }
       });
       inc.heads = {};
       if (v2 && o.t && typeof o.t === 'object') Object.keys(o.t).forEach(function (k) { var id = inc.basket[+k]; if (isHead(id) && typeof o.t[k] === 'string') inc.heads[id] = o.t[k].slice(0, 80); });
+      inc.gt = {};
+      if (v2 && o.gt && typeof o.gt === 'object') Object.keys(o.gt).forEach(function (k) { if (typeof o.gt[k] === 'string' && o.gt[k]) inc.gt['g' + String(k).slice(0, 20)] = o.gt[k].slice(0, 80); });
       inc.off = []; inc.qty = []; inc.hide = false;
       if (v2) {
         var tokOf = function (k) {
@@ -646,13 +656,14 @@ tr.sub td { background: var(--bg); }
     }).catch(function () { return null; });
   }
   function applyIncoming(inc, mode) {
-    if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; state.off = {}; state.qty = {}; state.heads = {}; state.fold = {}; state.hideOff = false; }
+    if (mode === 'replace') { state.basket = []; state.groups = {}; state.names = {}; state.pins = {}; state.off = {}; state.qty = {}; state.heads = {}; state.gt = {}; state.fold = {}; state.hideOff = false; }
     var ns = 'i' + Date.now().toString(36);   // keeps imported group ids apart from this device's own
     var rename = function (g) { return ns + g; };
     inc.basket.forEach(function (id) { if (state.basket.indexOf(id) === -1 && state.basket.length < MAX_BASKET) state.basket.push(id); });
     Object.keys(inc.groups).forEach(function (id) { state.groups[id] = rename(inc.groups[id]); });
     Object.keys(inc.names).forEach(function (id) { state.names[id] = inc.names[id]; });
     Object.keys(inc.heads || {}).forEach(function (id) { if (state.basket.indexOf(id) !== -1) state.heads[id] = inc.heads[id]; });
+    Object.keys(inc.gt || {}).forEach(function (g) { state.gt[rename(g)] = inc.gt[g]; });
     Object.keys(inc.pins).forEach(function (g) { state.pins[rename(g)] = Object.assign(state.pins[rename(g)] || {}, inc.pins[g]); });
     var tokName = function (t) { return t.g ? 'g:' + rename(t.g) : t.id; };
     (inc.off || []).forEach(function (t) { state.off[tokName(t)] = 1; });
@@ -921,6 +932,7 @@ tr.sub td { background: var(--bg); }
         if (pendingHead !== null) { if (pendingHead) rowsP.push({ head: true, n: pendingHead }); pendingHead = null; }   // a title is printed only when an active row follows it
         var up = unitPrice(u, t.s), p = up.id && productById(up.id), p0 = productById(u.ids[0]);
         var nm = p ? p.name + (p.size ? ' ' + p.size : '') : p0.name;
+        if (u.group && state.gt[u.group]) nm = state.gt[u.group] + (nm !== state.gt[u.group] ? ' (' + nm + ')' : '');
         rowsP.push({ n: nm, q: u.q, unit: up.price, price: up.price == null ? null : up.price * u.q, w: !!(p && p.w), many: u.ids.length > 1 ? u.ids.length : 0 });
       });
       return { label: t.s.chain.name + ' · ' + t.s.branch, chain: t.s.chain.name, branch: t.s.branch, rows: rowsP, sum: t.sum, missing: t.missing };
@@ -1015,7 +1027,7 @@ tr.sub td { background: var(--bg); }
       var p0 = productById(u.ids[0]);
       var anyW = u.ids.some(function (id) { return productById(id).w; });
       body += '<tr class="grp gsum' + (u.off ? ' off' : '') + '"><td class="prod"><div class="pname">' + mvHtml(ui) + cbox('g:' + u.group) +
-        '<span class="n">' + esc(p0.name) + '<small class="gcount">' + u.ids.length + ' גרסאות' + (anyW ? ' · לפי משקל' : '') + '</small></span>' +
+        '<span class="n"><input type="text" class="gin" data-gt="' + esc(u.group) + '" value="' + esc(state.gt[u.group] || p0.name) + '" maxlength="80" aria-label="שם השורה המאוחדת" title="לחיצה לעריכת שם השורה"><small class="gcount">' + u.ids.length + ' גרסאות' + (anyW ? ' · לפי משקל' : '') + '</small></span>' +
         '<span class="acts">' +
         '<button class="keep" type="button" data-toggle="' + esc(u.group) + '" aria-expanded="' + open + '" title="הצג או הסתר את הגרסאות ובחר אחת להשאיר">' + (open ? 'הסתר' : 'הצג') + '</button>' +
         '<button class="keep" type="button" data-split="' + esc(u.group) + '" title="פרק לשורות נפרדות">פרק</button>' +
@@ -1428,6 +1440,12 @@ tr.sub td { background: var(--bg); }
     focusHead = id; persist(); render();
   });
   host.addEventListener('change', function (e) {
+    var gi = e.target.closest && e.target.closest('input[data-gt]');
+    if (gi) {
+      var gid = gi.getAttribute('data-gt'), gv = gi.value.trim().slice(0, 80);
+      if (gv) state.gt[gid] = gv; else delete state.gt[gid];     // empty: back to the first product's name
+      persist(); render(); return;
+    }
     var el = e.target.closest && e.target.closest('input[data-h]');
     if (!el) return;
     var t = el.value.trim().slice(0, 80);
@@ -1453,7 +1471,7 @@ tr.sub td { background: var(--bg); }
     persist(); render();
   });
   host.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target.closest && e.target.closest('input[data-h]')) { e.preventDefault(); e.target.blur(); }
+    if (e.key === 'Enter' && e.target.closest && e.target.closest('input[data-h], input[data-gt]')) { e.preventDefault(); e.target.blur(); }
   });
   var qTimer = null, focusQ = null;
   host.addEventListener('input', function (e) {
